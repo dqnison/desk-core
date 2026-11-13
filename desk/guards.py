@@ -56,9 +56,23 @@ _HEREDOC_MSG_RE = re.compile(r"""\$\(cat\s+<<-?\s*['"]?(\w+)['"]?\s*\n(.*?)\n"""
 _MSG_ARG_RE = re.compile(r"""(?:\s-m\s*|\s--message[=\s])(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))""")
 
 
+_HEREDOC_BODY_RE = re.compile(r"""<<-?\s*(['"]?)(\w+)\1[^\n]*\n(.*?)^\s*\2\s*$""", re.S | re.M)
+
+
+def heredoc_bodies(cmd):
+    """[(start, end)] of heredoc bodies: text fed to a program, not shell commands."""
+    return [m.span(3) for m in _HEREDOC_BODY_RE.finditer(cmd or "")]
+
+
 def commit_segments(cmd):
-    """Tails of the command from each `git commit` (a command, not a mention in text)."""
-    return [cmd[m.start(1):] for m in COMMIT_SEG_RE.finditer(cmd or "")]
+    """Tails of the command from each `git commit` — a command at a segment start,
+    not a mention in text and not a line inside a heredoc body (a script that talks
+    about `git commit` is not committing). The tail keeps the commit's own heredoc
+    message, so attribution in it is still seen."""
+    cmd = cmd or ""
+    bodies = heredoc_bodies(cmd)
+    return [cmd[m.start(1):] for m in COMMIT_SEG_RE.finditer(cmd)
+            if not any(a <= m.start(1) < b for a, b in bodies)]
 
 
 def commit_subject(segment):

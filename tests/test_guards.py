@@ -55,6 +55,10 @@ sensitive body
         self.assertEqual(self.kinds(bash(cmd)), [("deny", "process/git.md#1")])
         # a mention in a non-commit command is not a commit
         self.assertEqual(self.kinds(bash("grep -r 'Co-Authored-By' .")), [])
+        # nor is a script in a heredoc that talks about committing
+        script = "python3 - <<'PY'\ncmd = 'cd x && " + "git commit -m x'\nprint(cmd)\nPY\n"
+        self.assertEqual(self.kinds(bash(script)), [])
+        self.assertEqual(self.kinds(bash("cat > t.sh <<EOF\n" + "git commit -m 'Bad.'\nEOF")), [])
 
     def test_subject_format(self):
         self.assertEqual(self.kinds(bash('git commit -m "fix(DEMO-123): handle empty cart"')), [])

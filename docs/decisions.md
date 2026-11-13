@@ -66,3 +66,22 @@ hidden by the harness in a persisted file.
 - Not carried over (policy, stays private): worktree and docker sweep, tracker and
   MR checks, CLI-skill checks, desktop header, SessionEnd journal, Obsidian canvas,
   the interfaces dictionary, link-map/hub/threads/freshness lint checks.
+
+## Changes driven by the replay (step 5)
+
+The replay ran the old trigger registry and the `when:` rewrite of it over every
+local transcript (392 sessions, ~65k calls); the report stays in the private desk.
+Engine changes it caused:
+
+- `command` and `input` regexes are case-sensitive (the old `in` substring tests
+  were); `prompt` stays case-insensitive.
+- `desk: true` — any command from a shell already in DESK_HOME, writes into it,
+  or a git command that changes something pointed there (`cd`, `git -C`). The first
+  version counted `cd ~/desk && grep …` from another session: reading, not touching.
+- Repository rules follow the touched repository into a session of another context
+  (paid code stays guarded wherever the edit comes from); only a repo name known to
+  two contexts falls back to the active one.
+- Unparsable YAML in a file without `tier:` (a skill manifest) is not a lint error;
+  block scalars `|`/`>` are parsed.
+- A `git commit` line inside a heredoc body is not a commit: the old guard denied a
+  script that merely contained such a line.
