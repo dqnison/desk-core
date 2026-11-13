@@ -54,6 +54,8 @@ class MatchTest(HomeCase):
         self.assertTrue(self.m({"input": {"n.x": "^1$"}}, mcp))
         self.assertTrue(self.m({"command": r"\bdocker\s+compose\b"}, bash("docker compose up")))
         self.assertFalse(self.m({"command": "docker"}, mcp))          # command implies Bash
+        self.assertFalse(self.m({"command": "APP_DB_"}, bash("echo app_db_x")))   # commands: case matters
+        self.assertTrue(self.m({"prompt": "логи"}, wh.Call(prompt="ЛОГИ")))         # prompts: it does not
         skill = wh.Call(tool="Skill", input={"skill": "acme-tools:db-inspect"})
         self.assertTrue(self.m({"skill": ["db-inspect"]}, skill))
         self.assertFalse(self.m({"skill": "other"}, skill))

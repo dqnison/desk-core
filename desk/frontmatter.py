@@ -3,9 +3,10 @@
 Supported: block mappings and sequences by indentation, sequences of mappings
 (`- tool: Bash` with continuation keys under it), flow lists `[a, b]` and flow
 maps `{remote: 'x'}` (nestable), quoted scalars ('…' with '' escape, "…" with
-backslash escapes), `true`/`false`, `null`/`~`, integers, `#` comments.
-Not supported (and reported as an error): anchors, tags, block scalars `|`/`>`,
-multi-document streams. The old desk parser only knew flat `key: [list]`; rule
+backslash escapes), block scalars `|` and `>` (blank lines inside are dropped),
+`true`/`false`, `null`/`~`, integers, `#` comments.
+Not supported (and reported as an error): anchors, aliases, tags, multi-document
+streams. The old desk parser only knew flat `key: [list]`; rule
 triggers and guards are nested data now, hence a real (if small) parser.
 """
 import re
@@ -85,7 +86,7 @@ def loads(text, first_line=1):
             raise FrontmatterError("tab in indentation", n)
         content = _strip_comment(raw.strip())
         if content:
-            lines.append([len(raw) - len(raw.lstrip()), content, n])
+            lines.append([len(raw) - len(raw.lstrip()), content, n, raw.strip()])
     if not lines:
         return None
     value, i = _block(lines, 0, lines[0][0])
@@ -107,7 +108,7 @@ def _block(lines, i, indent):
 def _map(lines, i, indent):
     out = {}
     while i < len(lines) and lines[i][0] == indent and not _is_item(lines[i][1]):
-        _, content, n = lines[i]
+        _, content, n, _ = lines[i]
         m = _KEY_RE.match(content)
         if not m:
             raise FrontmatterError(f"expected `key: value`, got {content!r}", n)
@@ -115,7 +116,13 @@ def _map(lines, i, indent):
         if key in out:
             raise FrontmatterError(f"duplicate key {key!r}", n)
         i += 1
-        if rest:
+        if rest[:1] in "|>" and rest.rstrip("+-") in ("|", ">"):
+            block = []
+            while i < len(lines) and lines[i][0] > indent:
+                block.append(lines[i][3])
+                i += 1
+            out[key] = ("\n" if rest[0] == "|" else " ").join(block)
+        elif rest:
             out[key] = scalar(rest, n)
         elif i < len(lines) and lines[i][0] > indent:
             out[key], i = _block(lines, i, lines[i][0])
@@ -131,7 +138,7 @@ def _map(lines, i, indent):
 def _seq(lines, i, indent):
     out = []
     while i < len(lines) and lines[i][0] == indent and _is_item(lines[i][1]):
-        _, content, n = lines[i]
+        _, content, n, raw = lines[i]
         rest = content[1:].lstrip()
         if not rest:
             i += 1
@@ -143,7 +150,7 @@ def _seq(lines, i, indent):
             continue
         col = indent + (len(content) - len(rest))
         if _KEY_RE.match(rest) and rest[0] not in "[{'\"":
-            lines[i] = [col, rest, n]           # `- key: v` opens a mapping at that column
+            lines[i] = [col, rest, n, raw[len(content) - len(rest):]]   # `- key: v` opens a mapping
             item, i = _map(lines, i, col)
         else:
             item = scalar(rest, n)
@@ -168,7 +175,7 @@ def scalar(s, line=None):
         if s[pos:].strip():
             raise FrontmatterError(f"trailing text after quoted value: {s[pos:]!r}", line)
         return value
-    if s[:1] in "|>&*!":
+    if s[:1] in "|>&*!" or s.startswith("---"):
         raise FrontmatterError(f"unsupported YAML syntax {s[:1]!r}", line)
     return _plain(s)
 

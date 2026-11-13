@@ -162,6 +162,8 @@ def load_rules(home=None, include_untiered=False):
             fm = frontmatter.parse(head)
         except frontmatter.FrontmatterError as e:
             fm, error = {}, str(e)
+        if error and not re.search(r"^tier\s*:", head, re.M):
+            continue    # not a rule (a skill manifest, say): its YAML is not ours to judge
         if error or "tier" in fm or include_untiered:
             out.append(_rule(home, p, fm, error))
     return out

@@ -265,9 +265,12 @@ def paths_match(globs, path, home, repo=None):
 
 
 # ------------------------------------------------------------------ matching
-def _regex(rx):
+def _regex(rx, flags=0):
+    """`prompt` is matched case-insensitively (people type as they like); `command`
+    and `input` case-sensitively (commands and paths are case-sensitive) — add
+    `(?i)` to a pattern to change that."""
     try:
-        return re.compile(str(rx), re.I)
+        return re.compile(str(rx), flags)
     except re.error:
         return None
 
@@ -293,7 +296,7 @@ def match_entry(entry, call, home, repo=None):
     if "prompt" in entry:
         if not call.is_prompt or len([k for k in entry if k in MATCHERS]) > 1:
             return None
-        rx = _regex(entry["prompt"])
+        rx = _regex(entry["prompt"], re.I)
         m = rx.search(call.prompt or "") if rx else None
         return f"реплика «{m.group(0)}»" if m else None
     if call.is_prompt:

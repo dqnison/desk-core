@@ -167,3 +167,31 @@ class MeasureTest(HomeCase):
         self.assertEqual(got["process/git.md#1"][1:3], (2, 2))     # no attribution in either commit
         self.assertEqual(got["process/git.md#2"][1:3], (1, 2))     # one bad subject
         self.assertEqual(got["place-words"][1:3], (1, 2))     # now.md clean, new.md leaks
+
+
+class EntryScriptsTest(HomeCase):
+    """bin/desk-hook and bin/desk run as the plugin runs them: a fresh process."""
+
+    def test_hook_script_end_to_end(self):
+        import subprocess
+        import sys
+        env = {**os.environ, "DESK_HOME": str(ROOT / "template")}
+        data = {"hook_event_name": "PreToolUse", "session_id": "e2e", "cwd": str(self.tmp),
+                "tool_name": "Bash", "tool_input": {"command": "git commit -m 'Fixed stuff.'"}}
+        p = subprocess.run([sys.executable, str(ROOT / "bin/desk-hook")], input=json.dumps(data),
+                           capture_output=True, text=True, env=env, timeout=30)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        out = json.loads(p.stdout)["hookSpecificOutput"]
+        self.assertEqual(out["permissionDecision"], "deny")
+        p = subprocess.run([sys.executable, str(ROOT / "bin/desk"), "lint"], capture_output=True,
+                           text=True, env=env, timeout=30)
+        self.assertEqual((p.returncode, p.stdout.strip()), (0, "lint: чисто"))
+
+    def test_hook_never_breaks_on_garbage(self):
+        import subprocess
+        import sys
+        for stdin in ("not json", json.dumps({"hook_event_name": "PreToolUse", "tool_input": "x"})):
+            p = subprocess.run([sys.executable, str(ROOT / "bin/desk-hook")], input=stdin,
+                               capture_output=True, text=True, timeout=30,
+                               env={**os.environ, "DESK_HOME": str(self.tmp / "missing")})
+            self.assertEqual(p.returncode, 0, p.stderr)

@@ -10,6 +10,7 @@ class HomeTest(HomeCase):
         "now.md": "# no tier: not a rule\n",
         "process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\n# Git\n",
         "process/broken.md": "---\ntier: [unterminated\n---\n",
+        "skills/x/SKILL.md": "---\nname: x\ndescription: &anchor not ours\n---\n",
         "work/DEMO-123/notes.md": "---\ntier: action\n---\nscratch is not walked\n",
         "contexts/acme/context.md": "---\ntier: session\nmatch: {remote: git.acme.example.com}\n---\n# Acme\n",
         "contexts/acme/projects/shop-api/sensitive.md": "---\ntier: action\nwhen:\n  - paths: ['billing/**']\n---\n",
@@ -21,6 +22,7 @@ class HomeTest(HomeCase):
         self.assertNotIn("now.md", rules)
         self.assertNotIn("work/DEMO-123/notes.md", rules)
         self.assertIsNotNone(rules["process/broken.md"].error)
+        self.assertNotIn("skills/x/SKILL.md", rules)      # unparsable but not a rule: ignored
         self.assertEqual(rules["process/git.md"].when, [{"git": "write"}])
         s = rules["contexts/acme/projects/shop-api/sensitive.md"]
         self.assertEqual((s.context, s.repo, s.layer), ("acme", "shop-api", 0))

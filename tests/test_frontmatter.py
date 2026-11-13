@@ -57,10 +57,14 @@ guard:
         self.assertEqual(fm.parse("---\nunterminated: x\n"), {})
 
     def test_errors(self):
-        for bad in ("---\na: |\n  x\n---\n", "---\na: [1, 2\n---\n", "---\na: 1\na: 2\n---\n",
+        for bad in ("---\na: &x 1\n---\n", "---\na: [1, 2\n---\n", "---\na: 1\na: 2\n---\n",
                     "---\na: 1\n    b: 2\n---\n", "---\njust text\n---\n"):
             with self.subTest(bad=bad), self.assertRaises(fm.FrontmatterError):
                 fm.parse(bad)
+
+    def test_block_scalars(self):
+        got = fm.parse("---\ndesc: >\n  one\n  two\nkeep: |\n  a\n  b\nnext: 1\n---\n")
+        self.assertEqual(got, {"desc": "one two", "keep": "a\nb", "next": 1})
 
     def test_body(self):
         self.assertEqual(fm.body("---\ntier: link\n---\n\n# T\ntext\n"), "# T\ntext")
