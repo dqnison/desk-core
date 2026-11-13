@@ -1,0 +1,11 @@
+{
+  "name": "desk-core",
+  "owner": {"name": "desk"},
+  "plugins": [
+    {
+      "name": "desk",
+      "source": "./",
+      "description": "Delivers your rules to the assistant by tiers and triggers declared in the rules themselves; guards deny or ask before a call."
+    }
+  ]
+}
