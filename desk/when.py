@@ -351,13 +351,18 @@ def match_entry(entry, call, home, repo=None):
 
 
 def touches_home(call, home):
-    """The call writes into DESK_HOME, or a Bash command runs there: from a shell
-    already in it (any command — the session works on the desk itself), or going
-    there with `cd`/`git -C`. Reading desk files from another session is not
-    touching it."""
+    """The call writes into DESK_HOME, or a Bash command runs from a shell already
+    in it (any command — the session works on the desk itself), or a git command
+    that changes something is pointed there (`cd`, `git -C`). Reading desk files
+    from another session — `cd ~/desk && grep …` included — is not touching it."""
     if any(homelib.is_inside(p, home) for p in call.targets):
         return True
-    return call.tool == "Bash" and any(homelib.is_inside(d, home) for d in [call.cwd, *call.dirs])
+    if call.tool != "Bash":
+        return False
+    if homelib.is_inside(call.cwd, home):
+        return True
+    writes_git = any(s not in GIT_READ_ONLY for s in git_subcommands(call.command))
+    return writes_git and any(homelib.is_inside(d, home) for d in call.dirs)
 
 
 def _short(path, home):
