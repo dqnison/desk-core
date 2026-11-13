@@ -171,7 +171,8 @@ def _deliver(fired, extra, state, event, prefix=""):
     send, rest = dl.bundle(rules, state)
     if not send:
         return ""
-    reasons = _reasons(fired) or "очередь прошлых порций"
+    sent_rels = {u.rel for u in send}
+    reasons = _reasons([f for f in fired if f.rule.rel in sent_rels]) or "очередь прошлых порций"
     head = msg.action_head(reasons, [u.label for u in send], event, [u.label for u in rest])
     state.sent(send, rest)
     text = (prefix + "\n" if prefix else "") + head + dl.body_of(send)
