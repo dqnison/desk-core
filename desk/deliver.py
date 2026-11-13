@@ -193,18 +193,36 @@ class State:
         return all(u.label in self.delivered for u in units(rule, budget))
 
 
-def reset(data):
+RESET_WINDOW = 30   # seconds: the slots of one start run together
+
+
+def reset(data, now=None):
     """`clear`/`compact` empty the context; the state must follow, or rules would
-    count as delivered while missing. True — reset done."""
+    count as delivered while missing. Every start slot calls it (under the session
+    lock): the first one resets and leaves a mark, the others see a fresh mark and
+    keep what the first slots already delivered. True — reset done."""
     data = data or {}
     sid = data.get("session_id")
     if not sid or not any(data.get(k) in CONTEXT_RESET_SOURCES for k in SOURCE_KEYS):
         return False
+    mark = state_dir() / f"{sid}.reset"
+    now = time.time() if now is None else now
+    try:
+        if now - mark.stat().st_mtime < RESET_WINDOW:
+            return False
+    except OSError:
+        pass
     try:
         (state_dir() / f"{sid}.json").unlink()
-        return True
     except OSError:
-        return False
+        pass
+    try:
+        state_dir().mkdir(parents=True, exist_ok=True)
+        mark.write_text(str(now))
+        os.utime(mark, (now, now))
+    except OSError:
+        pass
+    return True
 
 
 def context_kept(data):

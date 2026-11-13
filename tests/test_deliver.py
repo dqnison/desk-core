@@ -51,6 +51,15 @@ class UnitsTest(HomeCase):
         self.assertEqual(state.pending, [])
         self.assertTrue(state.fully_delivered(rules[0]))
 
+    def test_reset_once_per_start(self):
+        s = dl.State("s7", delivered={"a"})
+        s.save()
+        self.assertTrue(dl.reset({"session_id": "s7", "source": "clear"}, now=1000.0))
+        dl.State("s7", delivered={"b"}).save()         # slot 1 delivered after the reset
+        self.assertFalse(dl.reset({"session_id": "s7", "source": "clear"}, now=1010.0))
+        self.assertEqual(dl.State.load("s7").delivered, {"b"})
+        self.assertTrue(dl.reset({"session_id": "s7", "source": "compact"}, now=2000.0))
+
     def test_state_roundtrip_and_reset(self):
         s = dl.State("s1", delivered={"a"}, pending=["b"], gates={"g"}, asks={"k"})
         s.save()
@@ -109,10 +118,14 @@ class HookTest(HomeCase):
         return run_hook(data)
 
     def test_session_start_hub_first_and_scope(self):
+        head = ctx_of(run_hook({"hook_event_name": "SessionStart", "source": "startup", "session_id": "s1",
+                                "cwd": str(self.api)}, "--slot", "0", "--slots", "2"))
+        self.assertIn("Активный контекст: acme", head)
+        self.assertNotIn("Acme hub", head)
         out = run_hook({"hook_event_name": "SessionStart", "source": "startup", "session_id": "s1",
                         "cwd": str(self.api)}, "--slot", "1", "--slots", "2")
         text = ctx_of(out)
-        self.assertIn("Активный контекст: acme", text)
+        self.assertNotIn("Активный контекст", text)
         self.assertLess(text.index("Acme hub"), text.index("shop-api local"))
         self.assertIn("loop body", text)
         self.assertNotIn("web local", text)

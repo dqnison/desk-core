@@ -101,27 +101,33 @@ def _by_rel(rules, rels):
 
 # -------------------------------------------------------------- SessionStart
 def session_start(data, slot, slots):
-    if slot == 1:
+    """Slot 0 — the context line and extension texts (a header can be large, so it
+    gets an output of its own); slots 1..K — session-tier files. A single
+    registration (`--slots 1`) does both in one output. Every slot may reset the state on clear/compact:
+    the first one to take the lock does it, the rest see it fresh."""
+    session = homelib.session_from(data)
+    with dl.session_lock(session.session_id):
         dl.reset(data)
     if dl.context_kept(data):
         return ""
-    session = homelib.session_from(data)
-    rules = _rules(session)
-    files = session_rules(rules, session)
-    buckets, rest = dl.partition(files, slots)
-    used = sum(1 for b in buckets if b) or 1
-    mine = buckets[slot - 1] if 1 <= slot <= slots else []
-    last = min(slots, used)
     out = []
-    if slot == 1:
+    if slot == 0 or slots == 1:
         out.append(msg.context_line(session.context_name, session.basis, session.home))
         out += guards.load_errors(session.home)
         with dl.session_lock(session.session_id):
             state = dl.State.load(session.session_id)
             out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=state))
             state.save()
-        if not files:
-            out.append(msg.no_session_files())
+        if slot == 0:
+            return hook_json("SessionStart", "\n".join(out), msg.summary("SessionStart", out[0]))
+    rules = _rules(session)
+    files = session_rules(rules, session)
+    buckets, rest = dl.partition(files, slots)
+    used = sum(1 for b in buckets if b) or 1
+    mine = buckets[slot - 1] if 1 <= slot <= slots else []
+    last = min(slots, used)
+    if slot == 1 and not files:
+        out.append(msg.no_session_files())
     if mine:
         out.append(msg.slot_head(slot, used, [u.label for u in mine]) + dl.body_of(mine))
     if rest and slot == last:

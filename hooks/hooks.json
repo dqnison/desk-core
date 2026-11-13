@@ -6,18 +6,23 @@
         "hooks": [
           {
             "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/desk-hook\" --slot 0 --slots 3",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/desk-hook\" --slot 1 --slots 3",
-            "timeout": 15
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/desk-hook\" --slot 2 --slots 3",
-            "timeout": 15
+            "timeout": 30
           },
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/desk-hook\" --slot 3 --slots 3",
-            "timeout": 15
+            "timeout": 30
           }
         ]
       }

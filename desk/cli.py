@@ -98,8 +98,8 @@ def cmd_why(a):
 
 def hooks_block():
     entry = f'python3 "{ROOT / "bin" / "desk-hook"}"'
-    start = [{"type": "command", "command": f"{entry} --slot {i} --slots {SLOTS}", "timeout": 15}
-             for i in range(1, SLOTS + 1)]
+    start = [{"type": "command", "command": f"{entry} --slot {i} --slots {SLOTS}", "timeout": 30}
+             for i in range(0, SLOTS + 1)]
     one = [{"type": "command", "command": entry, "timeout": 15}]
     return {"hooks": {
         "SessionStart": [{"matcher": "startup|clear|compact", "hooks": start}],
