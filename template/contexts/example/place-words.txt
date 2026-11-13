@@ -1,0 +1,4 @@
+# Names of this place: they must not appear in the portable layer (process/, desk.md).
+# One per line; `#` starts a comment.
+Acme
+git.example.com

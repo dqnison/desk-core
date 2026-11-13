@@ -1,0 +1,6 @@
+{
+  "name": "desk",
+  "version": "0.1.0",
+  "description": "Delivers your rules to the assistant by tiers and triggers declared in the rules themselves; guards deny or ask before a call.",
+  "author": {"name": "desk"}
+}
