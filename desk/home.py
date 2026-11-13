@@ -82,7 +82,7 @@ def repo_of_path(path):
 
 
 # ------------------------------------------------------------------ rules
-@dataclass
+@dataclass(eq=False)
 class Rule:
     path: Path
     rel: str
