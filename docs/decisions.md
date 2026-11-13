@@ -92,3 +92,17 @@ difference (the old trigger fired on reads, on a sibling directory, on the word
 `worktree` in text; the new one sees writes through scripts, `mkdir`, symlinks).
 Guards: 2 518 commit commands, the only 4 differences are the old false denies on
 heredoc text.
+
+## Moving the author's desk onto the core
+
+- Hooks are a `settings.json` block pointing at `bin/desk-hook` of this checkout, not
+  the installed plugin: the plugin is copied into the plugin cache, so every engine
+  change would need an update; the block also rolls back as one key.
+- Confirmed live after the switch: SessionStart (slot 0 header + file slots),
+  UserPromptSubmit delivery, PreToolUse delivery and `deny` with the rule attached.
+- Engine additions it needed: extension events (`ext.on`) for the session header,
+  checkout state and journal; named triggers and settings in `desk.yml` (the entry
+  rule is imported into every session and must not carry engine data); `also:` for
+  shared rules a repository rule brings; the header in its own start output (slot 0)
+  so header and files never share one ~10k-character output; a reset mark so the
+  parallel start slots reset the state once.
