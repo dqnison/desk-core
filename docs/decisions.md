@@ -85,3 +85,10 @@ Engine changes it caused:
   block scalars `|`/`>` are parsed.
 - A `git commit` line inside a heredoc body is not a commit: the old guard denied a
   script that merely contained such a line.
+
+Result of the final replay: 10 of 14 triggers identical, the sensitive-path one
+17 of 18; 96.2 % of firings agree, and every remaining divergence is a deliberate
+difference (the old trigger fired on reads, on a sibling directory, on the word
+`worktree` in text; the new one sees writes through scripts, `mkdir`, symlinks).
+Guards: 2 518 commit commands, the only 4 differences are the old false denies on
+heredoc text.
