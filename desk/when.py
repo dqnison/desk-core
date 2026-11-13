@@ -118,6 +118,22 @@ _PATHISH_RE = re.compile(
 _NOT_PATH = ("/dev/", "http://", "https://")
 
 
+_HEREDOC_BODY_RE = re.compile(r"""<<-?\s*(['"]?)(\w+)\1[^\n]*\n(.*?)^\s*\2\s*$""", re.S | re.M)
+
+
+def heredoc_bodies(cmd):
+    """[(start, end)] of heredoc bodies: text fed to a program, not shell commands."""
+    return [m.span(3) for m in _HEREDOC_BODY_RE.finditer(cmd or "")]
+
+
+def without_heredocs(cmd):
+    """The command with heredoc bodies blanked out: what the shell itself runs."""
+    cmd = cmd or ""
+    for a, b in reversed(heredoc_bodies(cmd)):
+        cmd = cmd[:a] + cmd[b:]
+    return cmd
+
+
 def expand_vars(cmd):
     """Substitute `NAME=value` assignments of the command itself into `$NAME`/`${NAME}`."""
     for name, _, val in _ASSIGN_RE.findall(cmd or ""):
@@ -458,6 +474,7 @@ def repos_touched(call, session):
         if name:
             repos.add(name)
     if call.tool == "Bash":
-        text = call.command.replace(str(session.home), "")
+        # a heredoc body is data (a note being written, a script's strings), not work
+        text = without_heredocs(call.command).replace(str(session.home), "")
         repos |= {r for r in session.known_repos() if re.search(r"/" + re.escape(r) + r"(?![\w.-])", text)}
     return repos

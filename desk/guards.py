@@ -56,12 +56,7 @@ _HEREDOC_MSG_RE = re.compile(r"""\$\(cat\s+<<-?\s*['"]?(\w+)['"]?\s*\n(.*?)\n"""
 _MSG_ARG_RE = re.compile(r"""(?:\s-m\s*|\s--message[=\s])(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))""")
 
 
-_HEREDOC_BODY_RE = re.compile(r"""<<-?\s*(['"]?)(\w+)\1[^\n]*\n(.*?)^\s*\2\s*$""", re.S | re.M)
-
-
-def heredoc_bodies(cmd):
-    """[(start, end)] of heredoc bodies: text fed to a program, not shell commands."""
-    return [m.span(3) for m in _HEREDOC_BODY_RE.finditer(cmd or "")]
+from .when import heredoc_bodies  # noqa: E402
 
 
 def commit_segments(cmd):

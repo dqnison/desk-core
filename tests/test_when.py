@@ -134,6 +134,9 @@ class FiredTest(HomeCase):
         # a worktree in a directory of another name is still its repo (by remote)
         tree = git_checkout(self.tmp / "trees" / "fix-cart", "git@example.com:acme/shop-api.git")
         self.assertEqual(wh.repos_touched(bash(f"W={tree}; head -3 $W/README.md"), s), {"shop-api"})
+        # a repo named inside a heredoc body is data, not work in it
+        self.assertEqual(wh.repos_touched(bash("cat > notes.md <<'EOF'\nran cd /src/shop-api\nEOF"), s), set())
+        self.assertEqual(wh.repos_touched(bash("cd /src/shop-api && cat <<EOF\nx\nEOF"), s), {"shop-api"})
         # desk files are not repository work
         self.assertEqual(wh.repos_touched(bash(f"cat {self.home}/contexts/acme/context.md"), s), set())
         self.assertEqual(wh.repos_touched(wh.Call(tool="Edit", input={"file_path": str(api / "x.py")}), s),
