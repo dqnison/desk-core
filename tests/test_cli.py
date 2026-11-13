@@ -62,8 +62,9 @@ class TemplateTest(HomeCase):
 
 class LintTest(HomeCase):
     files = {
-        "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)\n",
-        "process/a.md": "---\ntier: action\nwhen:\n  - comand: x\n---\n## Раздел один\n",
+        "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"
+                   " [dash](process/a.md#время-в-api-utc)\n",
+        "process/a.md": "---\ntier: action\nwhen:\n  - comand: x\n---\n## Раздел один\n### Время в API — UTC\n",
         "process/b.md": "---\ntier: action\n---\n",
         "process/c.md": "---\ntier: link\nwhen:\n  - tool: Bash\n---\n",
         "process/d.md": "---\ntier: action\nwhen:\n  - command: '('\nguard:\n  - deny: x\n---\n",

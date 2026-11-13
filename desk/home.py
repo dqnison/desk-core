@@ -97,7 +97,7 @@ class Rule:
 
     @property
     def when(self):
-        """Entries (mappings) and names of shared triggers (strings, triggers.yml)."""
+        """Entries (mappings) and names of shared triggers (strings, desk.yml)."""
         return [w for w in frontmatter.as_list(self.fm.get("when")) if isinstance(w, (dict, str))]
 
     @property
@@ -333,8 +333,24 @@ def skipped(rule, session):
     return session.context_name in skip
 
 
+CONFIG_FILE = "desk.yml"
+_config_cache = {}
+
+
 def config(home=None):
-    """Engine settings from the frontmatter of <home>/desk.md under `desk:`."""
-    fm, _ = frontmatter.read(Path(home or desk_home()) / "desk.md")
-    cfg = fm.get("desk")
-    return cfg if isinstance(cfg, dict) else {}
+    """Engine settings: `<home>/desk.yml` — `triggers:` (named triggers), `portable:`,
+    `entry:`. A file of its own, not a rule's frontmatter: the entry rule is imported
+    into every session and must not carry engine data. Missing or broken — {}
+    (lint reports it)."""
+    f = Path(home or desk_home()) / CONFIG_FILE
+    try:
+        key = (str(f), f.stat().st_mtime)
+    except OSError:
+        return {}
+    if key not in _config_cache:
+        try:
+            raw = frontmatter.loads(f.read_text(encoding="utf-8")) or {}
+        except (frontmatter.FrontmatterError, OSError, UnicodeDecodeError):
+            raw = {}
+        _config_cache[key] = raw if isinstance(raw, dict) else {}
+    return _config_cache[key]

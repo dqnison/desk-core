@@ -1,0 +1,7 @@
+# Engine settings (desk-core README § «desk.yml»).
+# Portable layer: no names of a place here (contexts/<place>/place-words.txt).
+portable: ['desk.md', 'process/**']
+# Shared triggers: a rule writes `when: [name]`.
+triggers:
+  tests:
+    - command: '\b(pytest|phpunit|jest|vitest|go test|cargo test)\b|-m unittest|\bnpm (run )?test\b'

@@ -155,7 +155,7 @@ class PlaceWordsTest(HomeCase):
         self.assertEqual(guards.evaluate([], w("process/rule.md", "roadrunner <!-- lint:place-ok -->"), s), [])
 
     def test_portable_from_config(self):
-        self.write({"desk.md": "---\ntier: import\ndesk:\n  portable: ['process/**']\n---\n"})
+        self.write({"desk.md": "---\ntier: import\n---\n", "desk.yml": "portable: ['process/**']\n"})
         from desk import checks
         self.assertTrue(checks.portable(self.home / "process/rule.md", self.home))
         self.assertFalse(checks.portable(self.home / "desk.md", self.home))

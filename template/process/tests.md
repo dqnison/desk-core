@@ -1,7 +1,6 @@
 ---
 tier: action
-when:
-  - command: '\b(pytest|phpunit|jest|vitest|go test|cargo test)\b|-m unittest|\bnpm (run )?test\b'
+when: [tests]
 ---
 
 # Тесты

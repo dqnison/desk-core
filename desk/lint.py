@@ -116,18 +116,25 @@ def lint_when(entry):
 
 
 def check_named(home, out):
-    f = Path(home) / wh.NAMED_FILE
+    f = Path(home) / homelib.CONFIG_FILE
     if not f.exists():
         return
     try:
-        raw = frontmatter.loads(f.read_text(encoding="utf-8"))
+        raw = frontmatter.loads(f.read_text(encoding="utf-8")) or {}
     except frontmatter.FrontmatterError as e:
-        out.add(home, f, e.line, "when", str(e))
+        out.add(home, f, e.line, "config", str(e))
         return
     if not isinstance(raw, dict):
-        out.add(home, f, None, "when", "triggers.yml is not a mapping name → entries")
+        out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
-    for name, entries in raw.items():
+    unknown = [k for k in raw if k not in ("triggers", "portable", "entry")]
+    if unknown:
+        out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")
+    triggers = raw.get("triggers") or {}
+    if not isinstance(triggers, dict):
+        out.add(home, f, None, "config", "`triggers` is a mapping name → entries")
+        return
+    for name, entries in triggers.items():
         for i, entry in enumerate(frontmatter.as_list(entries), 1):
             for p in lint_when(entry):
                 out.add(home, f, None, "when", f"{name} entry {i}: {p}")
@@ -155,11 +162,11 @@ def check_contexts(home, out):
 _LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 
 
-def slug(heading):
-    """GitHub-style anchor: lowercase, punctuation dropped, spaces → `-`."""
-    s = heading.strip().lower()
-    s = re.sub(r"[^\w\- ]", "", s)
-    return s.replace(" ", "-")
+def slug(heading, collapse=True):
+    """Anchor: lowercase, punctuation dropped, spaces → `-`. Obsidian collapses a run
+    of spaces into one dash, GitHub does not (`a — b` → `a-b` / `a--b`); both count."""
+    s = re.sub(r"[^\w\s-]", "", heading.strip()).strip().casefold()
+    return re.sub(r"\s+" if collapse else r"\s", "-", s)
 
 
 def anchors(path):
@@ -172,7 +179,7 @@ def anchors(path):
         if line.lstrip().startswith("```"):
             fence = not fence
         elif not fence and re.match(r"#{1,6}\s", line):
-            out.add(slug(line.lstrip("#")))
+            out |= {slug(line.lstrip("#")), slug(line.lstrip("#"), collapse=False)}
     return out
 
 

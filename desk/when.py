@@ -389,28 +389,17 @@ class Fired:
 
 
 # ------------------------------------------------------------ named triggers
-NAMED_FILE = "triggers.yml"
-_named_cache = {}
+NAMED_FILE = "desk.yml"
 
 
 def named_triggers(home):
-    """`<home>/triggers.yml`: name → list of `when:` entries. A rule may write a name
-    instead of an entry (`when: [mr]`) — one definition for a trigger many rules
-    share. Unreadable or missing file — {} (lint reports the error)."""
-    f = Path(home) / NAMED_FILE
-    try:
-        key = (str(f), f.stat().st_mtime)
-    except OSError:
+    """`triggers:` of `<home>/desk.yml`: name → list of `when:` entries. A rule may
+    write a name instead of an entry (`when: [mr]`) — one definition for a trigger
+    many rules share."""
+    raw = homelib.config(home).get("triggers")
+    if not isinstance(raw, dict):
         return {}
-    if key not in _named_cache:
-        from . import frontmatter
-        try:
-            raw = frontmatter.loads(f.read_text(encoding="utf-8")) or {}
-        except (frontmatter.FrontmatterError, OSError, UnicodeDecodeError):
-            raw = {}
-        _named_cache[key] = {str(k): [e for e in as_list(v) if isinstance(e, dict)]
-                             for k, v in raw.items()} if isinstance(raw, dict) else {}
-    return _named_cache[key]
+    return {str(k): [e for e in as_list(v) if isinstance(e, dict)] for k, v in raw.items()}
 
 
 def entries_of(rule, named):

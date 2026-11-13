@@ -33,7 +33,7 @@ def broken(ev):
 
 class NamedAndAlsoTest(HomeCase):
     files = {
-        "triggers.yml": "mr:\n  - command: 'mr-cli'\n  - skill: [mr]\nlogs:\n  - prompt: 'логи'\n",
+        "desk.yml": "triggers:\n  mr:\n    - command: 'mr-cli'\n    - skill: [mr]\n  logs:\n    - prompt: 'логи'\n",
         "process/a.md": "---\ntier: action\nwhen: [mr]\n---\na body\n",
         "process/b.md": "---\ntier: action\nwhen:\n  - mr\n  - command: 'other'\n---\nb body\n",
         "process/sensitive.md": "---\ntier: action\n---\ngeneral sensitive\n",
@@ -54,11 +54,12 @@ class NamedAndAlsoTest(HomeCase):
     def test_lint(self):
         self.assertEqual(lint.run(self.home), [])          # sensitive.md has no when: but is brought
         self.write({"process/d.md": "---\ntier: action\nwhen: [nope]\nalso: [process/missing.md]\n---\n",
-                    "triggers.yml": "mr:\n  - comand: x\n"})
+                    "desk.yml": "triggers:\n  mr:\n    - comand: x\nportabel: []\n"})
         msgs = [m for _, _, _, m in lint.run(self.home)]
         self.assertTrue(any("no trigger `nope`" in m for m in msgs))
         self.assertTrue(any("missing file process/missing.md" in m for m in msgs))
         self.assertTrue(any(m.startswith("mr entry 1: unknown keys") for m in msgs))
+        self.assertTrue(any(m == "unknown keys: portabel" for m in msgs))
 
 
 class EventsTest(HomeCase):

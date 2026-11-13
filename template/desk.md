@@ -1,7 +1,5 @@
 ---
 tier: import
-desk:
-  portable: ['desk.md', 'process/**']
 ---
 
 # Desk
