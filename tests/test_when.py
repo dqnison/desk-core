@@ -100,6 +100,8 @@ class MatchTest(HomeCase):
         self.assertTrue(self.m({"desk": True}, bash(f"echo x >> {h}/now.md")))
         self.assertFalse(self.m({"desk": True}, bash(f"cat {h}/process/git.md", "/src")))
         self.assertFalse(self.m({"desk": True}, bash("ls", "/src")))
+        # a shell in the desk touches it with any command, even one that goes elsewhere
+        self.assertTrue(self.m({"desk": True}, bash("cd /src && git status", str(h))))
 
 
 class FiredTest(HomeCase):

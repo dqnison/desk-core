@@ -54,6 +54,16 @@ class HomeTest(HomeCase):
         rules = {r.rel: r for r in home.load_rules(self.home)}
         self.assertTrue(home.in_scope(rules["contexts/acme/projects/shop-api/sensitive.md"], s))
         self.assertFalse(home.in_scope(rules["contexts/personal/context.md"], s))
+        # the repo rule follows the repo into a session of another context
+        other = home.session_from({"cwd": "/", "session_id": "s2"}, self.home)
+        self.assertEqual(other.context.name, "personal")
+        rule = rules["contexts/acme/projects/shop-api/sensitive.md"]
+        self.assertTrue(home.in_scope(rule, other, {"shop-api"}))
+        self.assertFalse(home.in_scope(rule, other))
+        # a name two contexts share: only the active one decides
+        self.write({"contexts/personal/projects/shop-api/x.md": "---\ntier: link\n---\n"})
+        other = home.session_from({"cwd": "/", "session_id": "s3"}, self.home)
+        self.assertFalse(home.in_scope(rule, other, {"shop-api"}))
 
     def test_session_dir_follows_transcript_folder(self):
         sub = self.tmp / "proj" / "sub"

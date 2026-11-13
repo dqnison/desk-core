@@ -288,7 +288,8 @@ class Session:
         return self.context.name if self.context else None
 
     def known_repos(self):
-        return self.context.repos() if self.context else []
+        """Repo names the call text is searched for: every context's projects/."""
+        return sorted({r for c in self.contexts for r in c.repos()})
 
 
 def session_from(data, home=None, project_dir=None):
@@ -304,15 +305,22 @@ def session_from(data, home=None, project_dir=None):
 
 
 def in_scope(rule, session, repos=None):
-    """Rule belongs to this session: global, or of the active context; a repository
-    rule — only for repos in `repos` (default: the session's repository)."""
+    """Rule belongs to this session: global, or of the active context. A repository
+    rule goes with its repository, not with the session: it applies whenever that
+    repo is among `repos` (default: the session's repository), whichever context is
+    active — paid code stays guarded when another session touches it. Only when two
+    contexts know a repo by the same name does the active context decide."""
     if rule.context is None:
         return True
-    if session.context is None or rule.context != session.context.name:
-        return False
+    active = session.context.name if session.context else None
     if rule.repo is None:
+        return rule.context == active
+    if rule.repo not in (repos if repos is not None else {session.repo}):
+        return False
+    if rule.context == active:
         return True
-    return rule.repo in (repos if repos is not None else {session.repo})
+    owners = [c.name for c in session.contexts if rule.repo in c.repos()]
+    return owners == [rule.context]
 
 
 def skipped(rule, session):
