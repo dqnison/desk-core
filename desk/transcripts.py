@@ -71,7 +71,11 @@ def iter_session(path, mark=MARK):
             key = (att.get("toolUseID"), att.get("hookEvent"), text[:400])
             if mark in text and key not in seen:
                 seen.add(key)
-                events.append({"kind": "attachment", "text": text, "event": att.get("hookEvent", "")})
+                hook_ev = att.get("hookEvent", "")
+                # one delivery = one hook call; the start slots together are one delivery
+                events.append({"kind": "attachment", "text": text, "event": hook_ev,
+                               "delivery": hook_ev if hook_ev == "SessionStart"
+                               else (hook_ev, att.get("toolUseID"))})
             continue
         content = (rec.get("message") or {}).get("content")
         if isinstance(content, str):
