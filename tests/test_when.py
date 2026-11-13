@@ -99,6 +99,7 @@ class MatchTest(HomeCase):
         self.assertTrue(self.m({"desk": True}, bash(f"git -C {h} commit -m x", "/src")))
         self.assertTrue(self.m({"desk": True}, bash(f"cd {h} && git add -A && git commit -m x", "/src")))
         self.assertFalse(self.m({"desk": True}, bash(f"cd {h} && grep -rn x process", "/src")))
+        self.assertFalse(self.m({"desk": True}, bash(f"cd {h} && git diff --stat", "/src")))
         self.assertFalse(self.m({"desk": True}, bash(f"git -C {h} log -3", "/src")))
         self.assertTrue(self.m({"desk": True}, bash(f"echo x >> {h}/now.md")))
         self.assertFalse(self.m({"desk": True}, bash(f"cat {h}/process/git.md", "/src")))

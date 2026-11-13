@@ -361,7 +361,7 @@ def touches_home(call, home):
         return False
     if homelib.is_inside(call.cwd, home):
         return True
-    writes_git = any(s not in GIT_READ_ONLY for s in git_subcommands(call.command))
+    writes_git = any(s not in GIT_READ_ONLY | {"diff"} for s in git_subcommands(call.command))
     return writes_git and any(homelib.is_inside(d, home) for d in call.dirs)
 
 
