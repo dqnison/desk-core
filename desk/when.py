@@ -438,10 +438,22 @@ def fired(rules, call, home):
 
 
 def repos_touched(call, session):
-    """Repositories a call works with: the session's, the repos of written files,
-    and known repos of the active context named as a path segment in the command."""
+    """Repositories a call works with: the session's; the repos (by remote) of files
+    it writes and of existing paths in a Bash command — `cd`, `git -C`, variables,
+    so a worktree in a directory of any name counts as its repo; and known repo
+    names standing as a path segment (a checkout that is gone). Paths inside
+    DESK_HOME are desk files, not repository work."""
     repos = {session.repo} if session.repo else set()
-    for p in call.targets:
+    paths = list(call.targets)
+    if call.tool == "Bash":
+        cmd = expand_vars(call.command)
+        base = effective_cwd(cmd, call.cwd)
+        paths += call.dirs
+        paths += [p for p in _resolve(_PATHISH_RE.findall(cmd), base)
+                  if p.startswith("/") and os.path.exists(p)]
+    for p in paths:
+        if homelib.is_inside(p, session.home):
+            continue
         name, _ = homelib.repo_of_path(p)
         if name:
             repos.add(name)

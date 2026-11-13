@@ -131,5 +131,10 @@ class FiredTest(HomeCase):
         s.context = home.load_contexts(self.home)[0]
         self.assertEqual(wh.repos_touched(bash(f"cd {api} && ls"), s), {"shop-api"})
         self.assertEqual(wh.repos_touched(bash("ls /src/shop-api-old"), s), set())
+        # a worktree in a directory of another name is still its repo (by remote)
+        tree = git_checkout(self.tmp / "trees" / "fix-cart", "git@example.com:acme/shop-api.git")
+        self.assertEqual(wh.repos_touched(bash(f"W={tree}; head -3 $W/README.md"), s), {"shop-api"})
+        # desk files are not repository work
+        self.assertEqual(wh.repos_touched(bash(f"cat {self.home}/contexts/acme/context.md"), s), set())
         self.assertEqual(wh.repos_touched(wh.Call(tool="Edit", input={"file_path": str(api / "x.py")}), s),
                          {"shop-api"})
