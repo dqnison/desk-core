@@ -106,6 +106,7 @@ def hooks_block():
         "UserPromptSubmit": [{"hooks": one}],
         "PreToolUse": [{"matcher": "*", "hooks": one}],
         "PostToolUse": [{"matcher": "*", "hooks": one}],
+        "SessionEnd": [{"hooks": one}],
     }}
 
 

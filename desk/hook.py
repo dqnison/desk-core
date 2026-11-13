@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 from . import deliver as dl
-from . import guards, home as homelib, messages as msg, when as wh
+from . import ext, guards, home as homelib, messages as msg, when as wh
 
 
 def hook_json(event, context="", message="", **fields):
@@ -59,6 +59,10 @@ def handle(data, slot=1, slots=1):
         return pre_tool(data)
     if event == "PostToolUse":
         return post_tool(data)
+    if event == "SessionEnd":
+        session = homelib.session_from(data)
+        ext.load(session.home)
+        ext.emit("SessionEnd", ext.Event("SessionEnd", data, session))
     return ""
 
 
@@ -112,6 +116,10 @@ def session_start(data, slot, slots):
     if slot == 1:
         out.append(msg.context_line(session.context_name, session.basis, session.home))
         out += guards.load_errors(session.home)
+        with dl.session_lock(session.session_id):
+            state = dl.State.load(session.session_id)
+            out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=state))
+            state.save()
         if not files:
             out.append(msg.no_session_files())
     if mine:
@@ -136,11 +144,13 @@ def prompt(data):
     call = wh.Call.from_hook(data)
     rules = _deliverable(_rules(session), session, {session.repo})
     fired = dl.order_action(wh.fired(rules, call, session.home))
-    if not fired:
-        return ""
+    ext.load(session.home)
     with dl.session_lock(session.session_id):
         state = dl.State.load(session.session_id)
-        out = _deliver(fired, [], state, "UserPromptSubmit")
+        notes = "\n".join(ext.emit("UserPromptSubmit", ext.Event("UserPromptSubmit", data, session, call, state)))
+        out = _deliver(fired, [], state, "UserPromptSubmit", prefix=notes) if fired else ""
+        if notes and not out:
+            out = hook_json("UserPromptSubmit", notes)
         state.save()
     return out
 
@@ -189,7 +199,15 @@ def _pre_tool(data, session, call, scoped, fired, newcomers, all_rules, state):
         return hook_json("PreToolUse", text, msg.summary("PreToolUse", f"deny ({decision.id})"),
                          permissionDecision="deny", permissionDecisionReason=decision.reason)
     snapshot(data, call, session)
+    notes = "\n".join(ext.emit("PreToolUse", ext.Event("PreToolUse", data, session, call, state)))
+    out = _pre_tool_rest(session, call, fired, newcomers, all_rules, state, decision, notes)
+    if notes and not out:
+        out = hook_json("PreToolUse", notes, msg.summary("PreToolUse", notes.splitlines()[0]))
+    return out
 
+
+def _pre_tool_rest(session, call, fired, newcomers, all_rules, state, decision, notes):
+    prefix = notes + "\n" if notes else ""
     gated = [f for f in fired if f.gated and f.rule.rel not in state.gates
              and not state.fully_delivered(f.rule)]
     if gated:
@@ -200,7 +218,7 @@ def _pre_tool(data, session, call, scoped, fired, newcomers, all_rules, state):
             state.sent(send, rest)
             reason = msg.gate_reason([r.rel for r in rules], [u.label for u in send],
                                      [u.label for u in rest])
-            return hook_json("PreToolUse", msg.decision_head("deny", "gate", reason) + dl.body_of(send),
+            return hook_json("PreToolUse", prefix + msg.decision_head("deny", "gate", reason) + dl.body_of(send),
                              msg.summary("PreToolUse", "deny (gate) — " + ", ".join(r.rel for r in rules)),
                              permissionDecision="deny", permissionDecisionReason=reason)
 
@@ -212,12 +230,12 @@ def _pre_tool(data, session, call, scoped, fired, newcomers, all_rules, state):
         rules = list({r.rel: r for r in rules}.values())
         send, rest = dl.bundle(rules, state)
         state.sent(send, rest)
-        text = msg.decision_head("ask", decision.id, decision.reason)
+        text = prefix + msg.decision_head("ask", decision.id, decision.reason)
         if send:
             text += "\n" + msg.rules_attached([u.label for u in send]) + dl.body_of(send)
         return hook_json("PreToolUse", text, msg.summary("PreToolUse", f"ask ({decision.id})"),
                          permissionDecision="ask", permissionDecisionReason=decision.reason)
-    return _deliver(fired, extra, state, "PreToolUse")
+    return _deliver(fired, extra, state, "PreToolUse", prefix=notes)
 
 
 # ------------------------------------------------------------ git snapshots
@@ -301,7 +319,7 @@ def post_tool(data):
     with dl.session_lock(session.session_id):
         state = dl.State.load(session.session_id)
         mark_read(data, call, session, all_rules, state)
-        out = ""
+        out, changed = "", []
         if call.tool == "Bash":
             before = _load_snapshot(data)
             if before is not None:
@@ -309,6 +327,12 @@ def post_tool(data):
                 changed = changed_files(before, after)
                 if changed:
                     out = report_changes(changed, call, session, all_rules, state)
+        ext.load(session.home)
+        notes = ext.emit("PostToolUse", ext.Event("PostToolUse", data, session, call, state, tuple(changed)))
+        if notes:
+            ctx = json.loads(out)["hookSpecificOutput"].get("additionalContext", "") if out else ""
+            out = hook_json("PostToolUse", "\n".join(notes + ([ctx] if ctx else [])),
+                            msg.summary("PostToolUse", notes[0].splitlines()[0]))
         state.save()
     return out
 
@@ -351,7 +375,7 @@ def report_changes(changed, call, session, all_rules, state):
                 continue
             notes.append(msg.unconfirmed(d.reason))
             if d.rule:
-                fired.append(wh.Fired(d.rule, [(0, "запрет правила")]))
+                fired.append(wh.Fired(d.rule, [(None, "запрет правила")]))
         fired += wh.fired(_deliverable(all_rules, session, repos), fake, session.home)
     if not notes and not fired:
         return ""

@@ -56,6 +56,17 @@
           }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/desk-hook\"",
+            "timeout": 15
+          }
+        ]
+      }
     ]
   }
 }

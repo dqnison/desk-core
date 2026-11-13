@@ -41,7 +41,7 @@ def _fm_line(text, key):
     return 1
 
 
-def check_rule(rule, home, out):
+def check_rule(rule, home, out, brought=frozenset()):
     if rule.error:
         out.add(home, rule.path, None, "frontmatter", rule.error)
         return
@@ -50,11 +50,21 @@ def check_rule(rule, home, out):
         out.add(home, rule.path, _fm_line(text, "tier"), "frontmatter",
                 f"tier `{rule.tier}` — one of {', '.join(homelib.TIERS)}")
     raw_when = frontmatter.as_list(rule.fm.get("when"))
+    named = wh.named_triggers(home)
     for i, entry in enumerate(raw_when, 1):
+        if isinstance(entry, str):
+            if entry not in named:
+                out.add(home, rule.path, _fm_line(text, "when"), "when",
+                        f"entry {i}: no trigger `{entry}` in {wh.NAMED_FILE}")
+            continue
         for p in lint_when(entry):
             out.add(home, rule.path, _fm_line(text, "when"), "when", f"entry {i}: {p}")
-    if rule.tier == "action" and not raw_when:
-        out.add(home, rule.path, _fm_line(text, "tier"), "when", "action rule without `when:` is never delivered")
+    if rule.tier == "action" and not raw_when and rule.rel not in brought:
+        out.add(home, rule.path, _fm_line(text, "tier"), "when",
+                "action rule without `when:` (and no rule's `also:` names it) is never delivered")
+    for rel in frontmatter.as_list(rule.fm.get("also")):
+        if not (Path(home) / str(rel)).is_file():
+            out.add(home, rule.path, _fm_line(text, "also"), "when", f"`also:` names a missing file {rel}")
     if rule.tier in ("link", "import") and raw_when:
         out.add(home, rule.path, _fm_line(text, "when"), "when",
                 f"`when:` on a {rule.tier} rule: {rule.tier} has no hook carrier")
@@ -103,6 +113,24 @@ def lint_when(entry):
     if "gate" in entry and entry["gate"] is not True:
         probs.append("`gate` takes only `true`")
     return probs
+
+
+def check_named(home, out):
+    f = Path(home) / wh.NAMED_FILE
+    if not f.exists():
+        return
+    try:
+        raw = frontmatter.loads(f.read_text(encoding="utf-8"))
+    except frontmatter.FrontmatterError as e:
+        out.add(home, f, e.line, "when", str(e))
+        return
+    if not isinstance(raw, dict):
+        out.add(home, f, None, "when", "triggers.yml is not a mapping name → entries")
+        return
+    for name, entries in raw.items():
+        for i, entry in enumerate(frontmatter.as_list(entries), 1):
+            for p in lint_when(entry):
+                out.add(home, f, None, "when", f"{name} entry {i}: {p}")
 
 
 def check_contexts(home, out):
@@ -204,8 +232,10 @@ def run(home=None):
     home = Path(home or homelib.desk_home())
     out = Problems()
     rules = homelib.load_rules(home)
+    brought = {str(x) for r in rules for x in frontmatter.as_list(r.fm.get("also"))}
     for r in rules:
-        check_rule(r, home, out)
+        check_rule(r, home, out, brought)
+    check_named(home, out)
     check_contexts(home, out)
     check_links(home, out)
     check_imports(home, [r for r in rules if not r.error], out)

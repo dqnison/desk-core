@@ -41,7 +41,46 @@ class Check:
 LIVE = {}
 COMPLIANCE = {}
 LINT = {}
+EVENTS = {}
 _loaded = {}
+
+
+@dataclass
+class Event:
+    """What an event handler gets. `state` — the session's delivery state; a handler
+    that says something once per session keeps its keys in `state.notes`.
+    `changed` — files a Bash command really changed (PostToolUse)."""
+    name: str
+    data: dict
+    session: object
+    call: object = None
+    state: object = None
+    changed: tuple = ()
+
+
+def on(event):
+    """`fn(ev: Event) -> str | None` for SessionStart, UserPromptSubmit, PreToolUse,
+    PostToolUse or SessionEnd: the text goes to the model with the hook's output
+    (SessionStart — after the context line; SessionEnd output is dropped). For what
+    the engine does not do itself: a session header, checkout state, a journal."""
+    def wrap(fn):
+        EVENTS.setdefault(event, []).append(fn)
+        return fn
+    return wrap
+
+
+def emit(event, ev):
+    """Texts of the event's handlers, in registration order; a crashing handler
+    yields an error line instead of breaking the hook."""
+    out = []
+    for fn in EVENTS.get(event, []):
+        try:
+            text = fn(ev)
+        except Exception as e:   # noqa: BLE001
+            text = f"[desk] обработчик {getattr(fn, '__name__', fn)} ({event}) упал: {e!r}"
+        if text:
+            out.append(str(text))
+    return out
 
 
 def live(id, label=""):

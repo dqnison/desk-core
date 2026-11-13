@@ -377,28 +377,74 @@ def _short(path, home):
 @dataclass
 class Fired:
     rule: object
-    entries: list          # [(index, description)]
+    entries: list          # [(entry dict or None, description)]
 
     @property
     def gated(self):
-        return any(self.rule.when[i].get("gate") is True for i, _ in self.entries)
+        return any(isinstance(e, dict) and e.get("gate") is True for e, _ in self.entries)
 
     @property
     def why(self):
         return "; ".join(d for _, d in self.entries)
 
 
+# ------------------------------------------------------------ named triggers
+NAMED_FILE = "triggers.yml"
+_named_cache = {}
+
+
+def named_triggers(home):
+    """`<home>/triggers.yml`: name → list of `when:` entries. A rule may write a name
+    instead of an entry (`when: [mr]`) — one definition for a trigger many rules
+    share. Unreadable or missing file — {} (lint reports the error)."""
+    f = Path(home) / NAMED_FILE
+    try:
+        key = (str(f), f.stat().st_mtime)
+    except OSError:
+        return {}
+    if key not in _named_cache:
+        from . import frontmatter
+        try:
+            raw = frontmatter.loads(f.read_text(encoding="utf-8")) or {}
+        except (frontmatter.FrontmatterError, OSError, UnicodeDecodeError):
+            raw = {}
+        _named_cache[key] = {str(k): [e for e in as_list(v) if isinstance(e, dict)]
+                             for k, v in raw.items()} if isinstance(raw, dict) else {}
+    return _named_cache[key]
+
+
+def entries_of(rule, named):
+    """[(entry, label)] of a rule's `when:` with names expanded; label — the name or None."""
+    out = []
+    for item in rule.when:
+        if isinstance(item, dict):
+            out.append((item, None))
+        elif isinstance(item, str):
+            out += [(e, item) for e in named.get(item, [])]
+    return out
+
+
 def fired(rules, call, home):
-    """Rules whose `when:` matches the call: [Fired]."""
+    """Rules whose `when:` matches the call, plus the rules they bring along
+    (`also:` — paths relative to DESK_HOME): [Fired]."""
+    named = named_triggers(home)
     out = []
     for r in rules:
         hits = []
-        for i, entry in enumerate(r.when):
+        for entry, label in entries_of(r, named):
             d = match_entry(entry, call, home, r.repo)
             if d:
-                hits.append((i, d))
+                hits.append((entry, f"{label}: {d}" if label else d))
         if hits:
             out.append(Fired(r, hits))
+    by_rel = {r.rel: r for r in rules}
+    have = {f.rule.rel for f in out}
+    for f in list(out):
+        for rel in as_list(f.rule.fm.get("also")):
+            r = by_rel.get(str(rel))
+            if r is not None and r.rel not in have:
+                have.add(r.rel)
+                out.append(Fired(r, [(None, f"вместе с {f.rule.rel}")]))
     return out
 
 

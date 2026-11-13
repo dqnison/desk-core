@@ -97,7 +97,8 @@ class Rule:
 
     @property
     def when(self):
-        return [w for w in frontmatter.as_list(self.fm.get("when")) if isinstance(w, dict)]
+        """Entries (mappings) and names of shared triggers (strings, triggers.yml)."""
+        return [w for w in frontmatter.as_list(self.fm.get("when")) if isinstance(w, (dict, str))]
 
     @property
     def guard(self):
