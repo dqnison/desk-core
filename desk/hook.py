@@ -13,6 +13,7 @@ The command is never rewritten. No model calls.
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -39,6 +40,8 @@ def main(argv=None, stdin=None):
     try:
         data = json.load(stdin or sys.stdin)
     except ValueError:
+        return 0
+    if not isinstance(data, dict):
         return 0
     try:
         out = handle(data, a.slot, a.slots)
@@ -114,10 +117,13 @@ def session_start(data, slot, slots):
     if slot == 0 or slots == 1:
         out.append(msg.context_line(session.context_name, session.basis, session.home))
         out += guards.load_errors(session.home)
+        scratch = dl.State.load(session.session_id)
+        out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=scratch))
         with dl.session_lock(session.session_id):
             state = dl.State.load(session.session_id)
-            out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=state))
+            state.notes |= scratch.notes
             state.save()
+        dl.sweep_snapshots()
         if slot == 0:
             return hook_json("SessionStart", "\n".join(out), msg.summary("SessionStart", out[0]))
     rules = _rules(session)
@@ -200,14 +206,15 @@ def _pre_tool(data, session, call, scoped, fired, newcomers, all_rules, state):
     decision = guards.decide(scoped, call, session, state)
     if decision and decision.kind == "deny":
         attach = [decision.rule] if decision.rule else []
-        send, _ = dl.bundle(attach, state)
-        state.sent(send)
+        send, rest = dl.bundle(attach, state)
+        state.sent(send, rest)
         text = msg.decision_head("deny", decision.id, decision.reason) + dl.body_of(send)
         return hook_json("PreToolUse", text, msg.summary("PreToolUse", f"deny ({decision.id})"),
                          permissionDecision="deny", permissionDecisionReason=decision.reason)
-    snapshot(data, call, session)
     notes = "\n".join(ext.emit("PreToolUse", ext.Event("PreToolUse", data, session, call, state)))
     out = _pre_tool_rest(session, call, fired, newcomers, all_rules, state, decision, notes)
+    if '"permissionDecision": "deny"' not in out:
+        snapshot(data, call, session)
     if notes and not out:
         out = hook_json("PreToolUse", notes, msg.summary("PreToolUse", notes.splitlines()[0]))
     return out
@@ -215,8 +222,8 @@ def _pre_tool(data, session, call, scoped, fired, newcomers, all_rules, state):
 
 def _pre_tool_rest(session, call, fired, newcomers, all_rules, state, decision, notes):
     prefix = notes + "\n" if notes else ""
-    gated = [f for f in fired if f.gated and f.rule.rel not in state.gates
-             and not state.fully_delivered(f.rule)]
+    gated = [] if guards.no_deny() else [f for f in fired if f.gated and f.rule.rel not in state.gates
+                                         and not state.fully_delivered(f.rule)]
     if gated:
         rules = [f.rule for f in gated]
         send, rest = dl.bundle(rules, state)
@@ -254,8 +261,11 @@ def _snap_file(data):
 
 
 def _roots(call, session):
+    """Checkouts a command works in (cwd, `cd`, `git -C`), writes to, or names by an
+    existing absolute path. DESK_HOME only when the command reaches it: a parallel
+    session editing the desk must not show up as this command's change."""
     roots = set()
-    for p in [session.cwd, str(session.home), *call.dirs, *call.targets]:
+    for p in [session.cwd, *call.dirs, *call.targets, *wh.existing_paths(call)]:
         r = homelib.checkout_root(p)
         if r:
             roots.add(str(r))
@@ -267,13 +277,22 @@ def status_snapshot(roots):
     snap = {}
     for root in roots:
         try:
-            out = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "-uall"],
-                                 capture_output=True, text=True, timeout=5).stdout
+            out = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "-uall", "-z"],
+                                 capture_output=True, text=True, timeout=5,
+                                 env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"}).stdout
         except Exception:
             continue
         files = {}
-        for line in out.splitlines():
-            rel = line[3:].split(" -> ", 1)[-1].strip().strip('"')
+        entries = out.split("\0")
+        k = 0
+        while k < len(entries):
+            entry = entries[k]
+            k += 1
+            if len(entry) < 4:
+                continue
+            if entry[0] in "RC":          # rename/copy: the original name follows
+                k += 1
+            rel = entry[3:]
             try:
                 files[rel] = (Path(root) / rel).stat().st_mtime
             except OSError:

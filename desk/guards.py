@@ -51,35 +51,36 @@ class Decision:
 
 
 # --------------------------------------------------------------- commits
-COMMIT_SEG_RE = re.compile(r"(?:^|[;&|]\s*|\n\s*)(git(?:\s+-[Cc]\s+\S+)*\s+commit\b)")
+COMMIT_RE = re.compile(r"^(?:\S*/)?git(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+commit\b")
 _HEREDOC_MSG_RE = re.compile(r"""\$\(cat\s+<<-?\s*['"]?(\w+)['"]?\s*\n(.*?)\n""", re.S)
-_MSG_ARG_RE = re.compile(r"""(?:\s-m\s*|\s--message[=\s])(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))""")
+# -m / --message, also in a short-flag group (`-am`, `-qam`); value attached or not
+_MSG_ARG_RE = re.compile(
+    r"""(?<!\S)(?:-(?!-)[a-zA-Z]*m|--message)(?:=|\s*)(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))""")
+_NO_SUBJECT_RE = re.compile(r"(?<!\S)(?:-[a-zA-Z]*[FCct]\b|--(?:file|template|reuse-message|reedit-message|fixup|squash)\b)")
 
-
-from .when import heredoc_bodies  # noqa: E402
+from .when import command_words, shell_segments  # noqa: E402
 
 
 def commit_segments(cmd):
-    """Tails of the command from each `git commit` — a command at a segment start,
-    not a mention in text and not a line inside a heredoc body (a script that talks
-    about `git commit` is not committing). The tail keeps the commit's own heredoc
-    message, so attribution in it is still seen."""
-    cmd = cmd or ""
-    bodies = heredoc_bodies(cmd)
-    return [cmd[m.start(1):] for m in COMMIT_SEG_RE.finditer(cmd)
-            if not any(a <= m.start(1) < b for a, b in bodies)]
+    """The `git commit` commands of a shell line, each alone (its own segment with
+    its heredoc message), found where a command starts — after assignments and
+    keywords (`HUSKY=0 git commit`, `if git commit`, `(git commit`). Text that only
+    mentions `git commit` (a heredoc body, an echo) is not a commit."""
+    return [command_words(s) for s in shell_segments(cmd) if COMMIT_RE.match(command_words(s))]
 
 
 def commit_subject(segment):
-    """Subject of the first `-m` of a `git commit` segment; None — cannot read
-    (-F, editor, a variable)."""
-    if not re.match(r"git\b", segment or "") or re.search(r"\s(-F|--file)\b", segment):
+    """Subject of the first message flag of one `git commit` segment; None — cannot
+    read it (-F/-C/-c/-t, --fixup, editor, no -m, a variable)."""
+    m_commit = COMMIT_RE.match(segment or "")
+    if not m_commit:
         return None
-    m = _MSG_ARG_RE.search(segment)
-    if not m:
+    args = segment[m_commit.end():]
+    m = _MSG_ARG_RE.search(args)
+    if not m or _NO_SUBJECT_RE.search(args[:m.start()]):
         return None
     if m.group(1) is not None and m.group(1).lstrip().startswith("$(cat"):
-        h = _HEREDOC_MSG_RE.search(segment, m.start())
+        h = _HEREDOC_MSG_RE.search(args, m.start())
         return h.group(2).strip() if h else None
     text = next(g for g in m.groups() if g is not None)
     subject = text.replace('\\"', '"').split("\n", 1)[0].strip()
@@ -171,9 +172,13 @@ def evaluate(rules, call, session):
             kind, reason = res[0], res[1]
             rule = res[2] if len(res) > 2 else None
             out.append(Decision(kind, cid, reason, rule))
-    if os.environ.get(NO_DENY_ENV):
+    if no_deny():
         out = [d for d in out if d.kind != "deny"]
     return out
+
+
+def no_deny():
+    return bool(os.environ.get(NO_DENY_ENV))
 
 
 def decide(rules, call, session, state):

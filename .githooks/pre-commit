@@ -1,0 +1,22 @@
+#!/bin/sh
+# Tests before every commit: the engine runs live as hooks of every session.
+# Optional: DESK_CORE_WORDS — a file of words (one per line, # comments) that must not
+# appear in the tree (names of a private place); the file itself stays outside.
+# Enable: git config core.hooksPath .githooks
+top="$(git rev-parse --show-toplevel)"
+unset $(git rev-parse --local-env-vars)
+cd "$top" || exit 1
+if ! out="$(python3 -m unittest -q 2>&1)"; then
+  printf '%s\n' "$out" | tail -n 30
+  echo "pre-commit: unittest red" >&2
+  exit 1
+fi
+if [ -n "$DESK_CORE_WORDS" ] && [ -f "$DESK_CORE_WORDS" ]; then
+  hits="$(grep -v '^\s*#' "$DESK_CORE_WORDS" | sed 's/#.*//; s/[[:space:]]*$//' | grep -v '^$' \
+    | grep -rniF -f - $(git ls-files) 2>/dev/null | head -20)"
+  if [ -n "$hits" ]; then
+    printf '%s\n' "$hits"
+    echo "pre-commit: forbidden words in the tree" >&2
+    exit 1
+  fi
+fi

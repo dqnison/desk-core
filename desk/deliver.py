@@ -196,6 +196,21 @@ class State:
 RESET_WINDOW = 30   # seconds: the slots of one start run together
 
 
+SNAP_MAX_AGE = 24 * 3600
+
+
+def sweep_snapshots(now=None):
+    """Snapshots of calls that never ran (denied, an ask the human rejected) have no
+    PostToolUse to read them: drop the ones older than a day."""
+    now = time.time() if now is None else now
+    for f in state_dir().glob("*.snap.json") if state_dir().is_dir() else []:
+        try:
+            if now - f.stat().st_mtime > SNAP_MAX_AGE:
+                f.unlink()
+        except OSError:
+            pass
+
+
 def reset(data, now=None):
     """`clear`/`compact` empty the context; the state must follow, or rules would
     count as delivered while missing. Every start slot calls it (under the session

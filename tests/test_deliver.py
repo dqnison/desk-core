@@ -203,6 +203,31 @@ class HookTest(HomeCase):
         self.assertIn("threads body", ctx_of(out))
         self.assertIn("contexts/acme/now.md", ctx_of(out))
 
+    def test_snapshot_roots_leave_out_an_untouched_home(self):
+        git_checkout(self.home)
+        s = home.session_from({"cwd": str(self.api)}, self.home)
+        from desk import when as wh
+        roots = hook._roots(wh.Call(tool="Bash", input={"command": "make test"}, cwd=str(self.api)), s)
+        self.assertEqual(roots, {str(self.api)})
+        roots = hook._roots(wh.Call(tool="Bash", input={"command": f"ls {self.home}/process"}, cwd=str(self.api)), s)
+        self.assertEqual(roots, {str(self.api), str(self.home)})
+
+    def test_status_snapshot_reads_odd_names(self):
+        (self.api / "имя с пробелом.md").write_text("x")
+        snap = hook.status_snapshot({str(self.api)})
+        self.assertIn("имя с пробелом.md", snap[str(self.api)])
+
+    def test_non_object_stdin_is_ignored(self):
+        self.assertEqual(run_hook([1, 2]), {})
+
+    def test_no_deny_switch_opens_gates(self):
+        import os
+        os.environ["DESK_NO_DENY"] = "1"
+        try:
+            self.assertNotEqual(decision_of(self.pre(tool="mcp__metrics__query", q="up")), "deny")
+        finally:
+            del os.environ["DESK_NO_DENY"]
+
     def test_quiet_env(self):
         import os
         os.environ["DESK_HOOKS_OFF"] = "1"

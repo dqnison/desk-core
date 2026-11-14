@@ -23,9 +23,17 @@ class ShellParsingTest(HomeCase):
         self.assertIn("/w/conf.json", t("python3 -c \"open('conf.json','w').write('{}')\"", "/w"))
         self.assertEqual(t("cat a.md; grep -r x .", "/w"), [])
 
+    def test_unknown_user_home_does_not_raise(self):
+        self.assertEqual(wh.write_targets("cd ~nouser && echo x > ~nouser2/f", "/w"), ["/w/~nouser/~nouser2/f"])
+        self.assertEqual(bash("cd ~nouser && ls").dirs[:1], ["/w/~nouser"])
+
     def test_git_subcommands(self):
         self.assertEqual(wh.git_subcommands("git -C /x --no-pager log -5 && git commit -m x"), ["log", "commit"])
         self.assertEqual(wh.git_subcommands("cat git-flow.md"), [])
+
+    def test_absolute_glob_keeps_trailing_slash(self):
+        self.assertTrue(wh.paths_match(["/abs/dir/"], "/abs/dir/a/b.py", self.home))
+        self.assertFalse(wh.paths_match(["/abs/dir/"], "/abs/dirx/b.py", self.home))
 
     def test_globs(self):
         g = wh.glob_match
@@ -137,6 +145,17 @@ class FiredTest(HomeCase):
         # a repo named inside a heredoc body is data, not work in it
         self.assertEqual(wh.repos_touched(bash("cat > notes.md <<'EOF'\nran cd /src/shop-api\nEOF"), s), set())
         self.assertEqual(wh.repos_touched(bash("cd /src/shop-api && cat <<EOF\nx\nEOF"), s), {"shop-api"})
+        # DESK_HOME in any spelling and URLs are not repository work
+        import os
+        s.home = self.home
+        os.environ["HOME"], old_home = str(self.tmp), os.environ.get("HOME")
+        try:
+            self.assertEqual(wh.repos_touched(bash("cat ~/home/contexts/acme/projects/shop-api/x.md"), s), set())
+            self.assertEqual(wh.repos_touched(bash("cat $HOME/home/contexts/acme/projects/shop-api/x.md"), s), set())
+        finally:
+            os.environ["HOME"] = old_home
+        self.assertEqual(wh.repos_touched(bash("curl https://git.example.com/acme/shop-api/-/merge_requests/1"), s),
+                         set())
         # desk files are not repository work
         self.assertEqual(wh.repos_touched(bash(f"cat {self.home}/contexts/acme/context.md"), s), set())
         self.assertEqual(wh.repos_touched(wh.Call(tool="Edit", input={"file_path": str(api / "x.py")}), s),

@@ -71,6 +71,33 @@ sensitive body
         self.assertIn("Fixed stuff.", d.reason)
         self.assertIn("process/git.md", d.reason)
 
+    def test_commit_is_its_own_segment(self):
+        # review 14.11: a commit segment was the whole tail of the command
+        self.assertEqual(self.kinds(bash("git commit --amend --no-edit && python3 -m unittest")), [])
+        self.assertEqual(self.kinds(bash("git commit -m 'fix(no-ref): add cart' && echo 'Generated with x'")), [])
+        self.assertEqual(self.kinds(bash("git commit -m 'Bad.' && grep -F x f")), [("deny", "process/git.md#2")])
+
+    def test_commit_flag_groups_and_prefixes(self):
+        for cmd in ("git commit -am 'Fixed stuff.'", "git commit -qam 'Fixed stuff.'",
+                    "HUSKY=0 git commit -m 'Fixed stuff.'", "GIT_X='a b' git commit -m 'Fixed stuff.'",
+                    "if git commit -m 'Fixed stuff.'; then echo ok; fi", "(git commit -m 'Fixed stuff.')",
+                    "cd /r && git -C /r -c x=y commit -m 'Fixed stuff.' | cat"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.kinds(bash(cmd)), [("deny", "process/git.md#2")])
+        for cmd in ("git commit -C HEAD", "git commit --fixup HEAD", "git commit -F msg.txt",
+                    "git commit -m \"$MSG\"", "git log -m"):
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.kinds(bash(cmd)), [])
+
+    def test_shell_segments(self):
+        seg = wh.shell_segments
+        self.assertEqual(seg("a && b || c; d | e & f"), ["a", "b", "c", "d", "e", "f"])
+        self.assertEqual(seg("echo 'a; b' \"c && d\""), ["echo 'a; b' \"c && d\""])
+        self.assertEqual(seg("x=$(git log; echo y) && z"), ["x=$(git log; echo y)", "z"])
+        self.assertEqual(seg("cat > f <<'EOF'\ngit commit -m x; y\nEOF\nls"),
+                         ["cat > f <<'EOF'\ngit commit -m x; y\nEOF", "ls"])
+        self.assertEqual(seg("(cd a && make) && b"), ["cd a", "make", "b"])
+
     def test_paths_ask_only_in_its_repo(self):
         edit = wh.Call(tool="Edit", input={"file_path": str(self.api / "billing/pay.py")})
         self.assertEqual(self.kinds(edit), [("ask", "contexts/acme/projects/shop-api/sensitive.md#1")])
@@ -94,6 +121,14 @@ sensitive body
         self.assertEqual(decision_of(out), "ask")
         self.assertIn("sensitive body", ctx_of(out))
         self.assertEqual(pre(**edit), {})                      # asked once, rule already in context
+
+    def test_deny_queues_the_tail_of_a_big_rule(self):
+        self.write({"process/git.md": GIT_RULE + "".join(f"## S{i}\n" + "x" * 5000 + "\n" for i in range(3))})
+        from desk import deliver as dl
+        out = run_hook({"hook_event_name": "PreToolUse", "session_id": "s9", "cwd": str(self.api),
+                        "tool_name": "Bash", "tool_input": {"command": "git commit -m 'Fixed stuff.'"}})
+        self.assertEqual(decision_of(out), "deny")
+        self.assertEqual(dl.State.load("s9").pending, ["process/git.md"])
 
     def test_post_tool_remarks_unconfirmed_change(self):
         base = {"session_id": "s2", "cwd": str(self.api), "tool_name": "Bash", "tool_use_id": "t1",

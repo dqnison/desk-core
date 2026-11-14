@@ -71,7 +71,7 @@ class Call:
             fp = self.input.get("file_path") or self.input.get("notebook_path") or ""
             if not fp:
                 return []
-            p = Path(fp).expanduser()
+            p = expand_user(fp)
             return [os.path.normpath(str(p if p.is_absolute() else Path(self.cwd) / p))]
         if self.tool == "Bash":
             return write_targets(self.command, self.cwd)
@@ -134,6 +134,108 @@ def without_heredocs(cmd):
     return cmd
 
 
+def expand_user(p):
+    """`Path(p).expanduser()` that never raises: `~nouser/x` stays as written."""
+    try:
+        return Path(p).expanduser()
+    except RuntimeError:
+        return Path(p)
+
+
+def shell_segments(cmd):
+    """Simple commands of a shell line: split at `;`, `&`, `&&`, `|`, `||`, newlines
+    and grouping parens, outside quotes, `$(…)`/backticks and heredoc bodies. A
+    heredoc body stays with the command that opened it, so a commit message in
+    `-m "$(cat <<'EOF' … EOF)"` belongs to its `git commit`. Returns stripped texts."""
+    cmd = cmd or ""
+    out, start, i, n = [], 0, 0, len(cmd)
+    quote, stack, pending = None, [], []
+
+    def cut(end):
+        seg = cmd[start:end].strip()
+        if seg:
+            out.append(seg)
+
+    while i < n:
+        c = cmd[i]
+        if quote:
+            if c == "\\" and quote == '"':
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in "'\"`":
+            if c == "`":
+                stack.append("`") if not stack or stack[-1] != "`" else stack.pop()
+            else:
+                quote = c
+            i += 1
+            continue
+        if c == "\\":
+            i += 2
+            continue
+        if cmd.startswith("$(", i):
+            stack.append("$(")
+            i += 2
+            continue
+        if cmd.startswith("<<", i) and not cmd.startswith("<<<", i):
+            m = re.compile(r"""<<(-?)\s*(['"]?)(\w+)\2""").match(cmd, i)
+            if m:
+                pending.append((m.group(3), bool(m.group(1))))
+                i = m.end()
+                continue
+        if c == "\n" and pending:
+            j = i + 1
+            for word, dash in pending:            # skip the bodies, delimiter lines included
+                while j < n:
+                    eol = cmd.find("\n", j)
+                    eol = n if eol < 0 else eol
+                    line = cmd[j:eol]
+                    j = eol + 1
+                    if (line.strip() if dash else line.rstrip()) == word:
+                        break
+            pending = []
+            if not stack:
+                cut(min(j, n))
+                start = min(j, n)
+            i = j
+            continue
+        in_subst = any(s in ("$(", "`") for s in stack)
+        if c == "(":
+            stack.append("(")
+            if not in_subst:
+                cut(i)
+                start = i + 1
+            i += 1
+            continue
+        if c == ")":
+            kind = stack.pop() if stack else "("
+            if kind == "(" and not any(s in ("$(", "`") for s in stack):
+                cut(i)
+                start = i + 1
+            i += 1
+            continue
+        if not in_subst and c in ";&|\n{}":
+            cut(i)
+            i += 2 if cmd[i:i + 2] in ("&&", "||", ";;") else 1
+            start = i
+            continue
+        i += 1
+    cut(n)
+    return out
+
+
+_LEAD_RE = re.compile(r"""^(?:(?:[A-Za-z_]\w*=(?:'[^']*'|"(?:[^"\\]|\\.)*"|\S*)|if|then|else|elif|do|while|until|time|!|command|env|exec|nohup|sudo)\s+)*""")
+
+
+def command_words(segment):
+    """The segment without leading assignments and keywords (`HUSKY=0 git …`,
+    `if git …`, `! git …`): what actually runs."""
+    return segment[_LEAD_RE.match(segment).end():]
+
+
 def expand_vars(cmd):
     """Substitute `NAME=value` assignments of the command itself into `$NAME`/`${NAME}`."""
     for name, _, val in _ASSIGN_RE.findall(cmd or ""):
@@ -143,10 +245,10 @@ def expand_vars(cmd):
 
 def effective_cwd(cmd, cwd):
     """Base of relative paths: the first `cd X` of the command, else cwd."""
-    base = Path(cwd or ".").expanduser()
+    base = expand_user(cwd or ".")
     m = _CD_RE.search(cmd or "")
     if m:
-        target = Path(m.group(2)).expanduser()
+        target = expand_user(m.group(2))
         base = target if target.is_absolute() else base / target
     return base
 
@@ -157,7 +259,7 @@ def _resolve(tokens, base):
         t = t.strip().strip("'\"")
         if not t or t.isdigit() or t.startswith("-") or any(t.startswith(x) or x in t for x in _NOT_PATH):
             continue
-        q = Path(t).expanduser()
+        q = expand_user(t)
         # normpath, not resolve: no symlink games, `..` collapses to one spelling
         out.append(os.path.normpath(str(q if q.is_absolute() else Path(base) / q)))
     return out
@@ -263,7 +365,7 @@ def paths_match(globs, path, home, repo=None):
     globs = [str(g) for g in as_list(globs)]
     absolute = [g for g in globs if g.startswith(("/", "~"))]
     relative = [g for g in globs if not g.startswith(("/", "~"))]
-    if any(glob_match(str(Path(g).expanduser()), path) for g in absolute):
+    if any(glob_match(str(expand_user(g)) + ("/" if g.endswith("/") else ""), path) for g in absolute):
         return True
     if not relative:
         return False
@@ -453,6 +555,29 @@ def fired(rules, call, home):
     return out
 
 
+def existing_paths(call):
+    """Absolute paths a Bash command names that exist (variables substituted)."""
+    if call.tool != "Bash":
+        return []
+    cmd = expand_vars(call.command)
+    base = effective_cwd(cmd, call.cwd)
+    return [p for p in _resolve(_PATHISH_RE.findall(cmd), base) if p.startswith("/") and os.path.exists(p)]
+
+
+def _strip_home(text, home):
+    """Remove DESK_HOME paths in every spelling: absolute, `~/…`, `$HOME/…`, `${HOME}/…`."""
+    home = str(home)
+    spellings = [home]
+    try:
+        rel = Path(home).relative_to(Path.home()).as_posix()
+        spellings += [f"~/{rel}", f"$HOME/{rel}", f"${{HOME}}/{rel}"]
+    except ValueError:
+        pass
+    for s in spellings:
+        text = re.sub(re.escape(s) + r"(?=/|\s|$|['\"])\S*", " ", text)
+    return text
+
+
 def repos_touched(call, session):
     """Repositories a call works with: the session's; the repos (by remote) of files
     it writes and of existing paths in a Bash command — `cd`, `git -C`, variables,
@@ -475,6 +600,7 @@ def repos_touched(call, session):
             repos.add(name)
     if call.tool == "Bash":
         # a heredoc body is data (a note being written, a script's strings), not work
-        text = without_heredocs(call.command).replace(str(session.home), "")
+        text = _strip_home(without_heredocs(call.command), session.home)
+        text = re.sub(r"\b[a-z][a-z0-9+.-]*://\S+", " ", text)
         repos |= {r for r in session.known_repos() if re.search(r"/" + re.escape(r) + r"(?![\w.-])", text)}
     return repos
