@@ -127,7 +127,7 @@ def check_named(home, out):
     if not isinstance(raw, dict):
         out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
-    unknown = [k for k in raw if k not in ("triggers", "portable", "entry")]
+    unknown = [k for k in raw if k not in ("triggers", "portable", "entry", "header")]
     if unknown:
         out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")
     triggers = raw.get("triggers") or {}

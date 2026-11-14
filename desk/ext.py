@@ -56,6 +56,7 @@ class Event:
     call: object = None
     state: object = None
     changed: tuple = ()
+    header: object = None   # SessionStart: desk.header.Header to add rows/signals to (None — off)
 
 
 def on(event):

@@ -71,6 +71,13 @@ def ext_error(name, err):
     return f"{MARK} расширение {name} не загрузилось: {err}"
 
 
+def header_instruction(widget_title):
+    return (f"{MARK} Шапка сессии — первым блоком первого ответа. Есть инструмент show_widget "
+            f"(десктоп) — виджетом: show_widget с title `{widget_title}` и кодом из блока html ниже "
+            "как есть, без read_me; рамку тогда не выводить. Нет — рамкой из блока text как есть, "
+            "с ограждением:")
+
+
 def summary(event, *lines):
     """systemMessage — for the human (the model does not get it)."""
     lines = [s for s in lines if s]

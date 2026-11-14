@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 from . import deliver as dl
-from . import ext, guards, home as homelib, messages as msg, when as wh
+from . import ext, guards, header as hdr, home as homelib, messages as msg, when as wh
 
 
 def hook_json(event, context="", message="", **fields):
@@ -118,7 +118,10 @@ def session_start(data, slot, slots):
         out.append(msg.context_line(session.context_name, session.basis, session.home))
         out += guards.load_errors(session.home)
         scratch = dl.State.load(session.session_id)
-        out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=scratch))
+        h = hdr.new(_rules(session), session) if hdr.enabled(session.home) else None
+        out += ext.emit("SessionStart", ext.Event("SessionStart", data, session, state=scratch, header=h))
+        if h is not None:
+            out.append(hdr.render(h))
         with dl.session_lock(session.session_id):
             state = dl.State.load(session.session_id)
             state.notes |= scratch.notes
