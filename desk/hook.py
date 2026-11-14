@@ -158,7 +158,7 @@ def prompt(data):
     session = homelib.session_from(data)
     call = wh.Call.from_hook(data)
     rules = _deliverable(_rules(session), session, {session.repo})
-    fired = dl.order_action(wh.fired(rules, call, session.home))
+    fired = dl.order_action(wh.fired(rules, call, session.home, session.context_name))
     ext.load(session.home)
     with dl.session_lock(session.session_id):
         state = dl.State.load(session.session_id)
@@ -196,7 +196,8 @@ def pre_tool(data):
     repos = wh.repos_touched(call, session)
     all_rules = _rules(session)
     scoped = [r for r in all_rules if homelib.in_scope(r, session, repos)]
-    fired = dl.order_action(wh.fired(_deliverable(all_rules, session, repos), call, session.home))
+    fired = dl.order_action(wh.fired(_deliverable(all_rules, session, repos), call, session.home,
+                                     session.context_name))
     newcomers = newcomer_rules(all_rules, session, repos)
     with dl.session_lock(session.session_id):
         state = dl.State.load(session.session_id)
@@ -405,7 +406,7 @@ def report_changes(changed, call, session, all_rules, state):
             notes.append(msg.unconfirmed(d.reason))
             if d.rule:
                 fired.append(wh.Fired(d.rule, [(None, "запрет правила")]))
-        fired += wh.fired(_deliverable(all_rules, session, repos), fake, session.home)
+        fired += wh.fired(_deliverable(all_rules, session, repos), fake, session.home, session.context_name)
     if not notes and not fired:
         return ""
     notes = list(dict.fromkeys(notes))

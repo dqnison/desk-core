@@ -69,7 +69,7 @@ def reach(rules, records, home):
             call = _call(ev, rec["cwd"])
             repos = wh.repos_touched(call, s) if not call.is_prompt else {s.repo}
             scoped = [r for r in candidates if r.rel not in first and homelib.in_scope(r, s, repos)]
-            for f in wh.fired(scoped, call, home):
+            for f in wh.fired(scoped, call, home, s.context_name):
                 first[f.rule.rel] = (f.rule, i)
         for rel, (rule, i) in first.items():
             out[rel][0] += 1

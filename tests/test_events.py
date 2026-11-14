@@ -51,6 +51,17 @@ class NamedAndAlsoTest(HomeCase):
         got = [f.rule.rel for f in wh.fired(rules, wh.Call(tool="Bash", input={"command": "pay now"}), self.home)]
         self.assertEqual(got, ["process/c.md", "process/sensitive.md"])
 
+    def test_place_defines_a_portable_trigger(self):
+        self.write({"contexts/acme/context.md": "---\nmatch: {remote: example.com}\n---\n",
+                    "contexts/acme/desk.yml": "triggers:\n  tracker:\n    - command: 'acme-tracker'\n",
+                    "process/tracker.md": "---\ntier: action\nwhen: [tracker]\n---\nreport rules\n"})
+        rules = home.load_rules(self.home)
+        call = wh.Call(tool="Bash", input={"command": "acme-tracker issue get DEMO-123"})
+        self.assertEqual([f.rule.rel for f in wh.fired(rules, call, self.home, "acme")], ["process/tracker.md"])
+        self.assertEqual(wh.fired(rules, call, self.home, "personal"), [])     # no tracker there
+        self.assertEqual(wh.fired(rules, call, self.home), [])
+        self.assertEqual(lint.run(self.home), [])                            # the name exists in a place
+
     def test_lint(self):
         self.assertEqual(lint.run(self.home), [])          # sensitive.md has no when: but is brought
         self.write({"process/d.md": "---\ntier: action\nwhen: [nope]\nalso: [process/missing.md]\n---\n",

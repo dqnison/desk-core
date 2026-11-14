@@ -50,7 +50,10 @@ def check_rule(rule, home, out, brought=frozenset()):
         out.add(home, rule.path, _fm_line(text, "tier"), "frontmatter",
                 f"tier `{rule.tier}` — one of {', '.join(homelib.TIERS)}")
     raw_when = frontmatter.as_list(rule.fm.get("when"))
-    named = wh.named_triggers(home)
+    named = wh.named_triggers(home, rule.context)
+    if rule.context is None:     # a portable rule may name what only places define
+        for c in homelib.load_contexts(home):
+            named = {**wh.named_triggers(home, c.name), **named}
     for i, entry in enumerate(raw_when, 1):
         if isinstance(entry, str):
             if entry not in named:
@@ -116,7 +119,12 @@ def lint_when(entry):
 
 
 def check_named(home, out):
-    f = Path(home) / homelib.CONFIG_FILE
+    _check_config(home, Path(home) / homelib.CONFIG_FILE, out, root=True)
+    for c in homelib.load_contexts(home):
+        _check_config(home, c.path / homelib.CONFIG_FILE, out, root=False)
+
+
+def _check_config(home, f, out, root):
     if not f.exists():
         return
     try:
@@ -127,7 +135,8 @@ def check_named(home, out):
     if not isinstance(raw, dict):
         out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
-    unknown = [k for k in raw if k not in ("triggers", "portable", "entry", "header")]
+    allowed = ("triggers", "portable", "entry", "header") if root else ("triggers",)
+    unknown = [k for k in raw if k not in allowed]
     if unknown:
         out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")
     triggers = raw.get("triggers") or {}

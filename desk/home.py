@@ -342,7 +342,17 @@ def config(home=None):
     `entry:`. A file of its own, not a rule's frontmatter: the entry rule is imported
     into every session and must not carry engine data. Missing or broken — {}
     (lint reports it)."""
-    f = Path(home or desk_home()) / CONFIG_FILE
+    return _load_config(Path(home or desk_home()) / CONFIG_FILE)
+
+
+def context_config(home, context):
+    """`contexts/<context>/desk.yml` — what a place adds (its named triggers)."""
+    if not context:
+        return {}
+    return _load_config(Path(home or desk_home()) / "contexts" / str(context) / CONFIG_FILE)
+
+
+def _load_config(f):
     try:
         key = (str(f), f.stat().st_mtime)
     except OSError:

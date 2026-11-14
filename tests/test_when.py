@@ -22,6 +22,10 @@ class ShellParsingTest(HomeCase):
         self.assertEqual(t("echo x > sub/../f.md", "/w"), ["/w/f.md"])
         self.assertIn("/w/conf.json", t("python3 -c \"open('conf.json','w').write('{}')\"", "/w"))
         self.assertEqual(t("cat a.md; grep -r x .", "/w"), [])
+        # a heredoc body is data: a quoted reply line is not a redirect
+        self.assertEqual(t("cat > notes.md <<'EOF'\n> quoted reply\ncp a b\nEOF", "/w"), ["/w/notes.md"])
+        # …but an interpreter script fed by a heredoc writes what it names
+        self.assertIn("/w/out.json", t("python3 - <<'PY'\nopen('out.json','w').write('1')\nPY", "/w"))
 
     def test_unknown_user_home_does_not_raise(self):
         self.assertEqual(wh.write_targets("cd ~nouser && echo x > ~nouser2/f", "/w"), ["/w/~nouser/~nouser2/f"])

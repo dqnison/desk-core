@@ -65,7 +65,7 @@ def cmd_why(a):
     if broken:
         print("Не разобраны (lint): " + ", ".join(broken))
 
-    fired = dl.order_action(wh.fired(hook._deliverable(good, session, repos), call, home))
+    fired = dl.order_action(wh.fired(hook._deliverable(good, session, repos), call, home, session.context_name))
     print("\nСработают правила:" if fired else "\nНи одно правило не сработало.")
     for f in fired:
         gate = "  [gate]" if f.gated else ""

@@ -105,6 +105,9 @@ def iter_session(path, mark=MARK):
                         ev["persisted"] = "<persisted-output>" in str(body)
                         ev["error"] = bool(c.get("is_error"))
                         break
+    for ev in events:
+        if ev["kind"] == "tool_use":
+            ev["cwd"] = cwd or "."      # checks read where a call ran from the event
     return {"path": str(path), "cwd": cwd, "started": started, "events": events}
 
 

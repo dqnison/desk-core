@@ -155,6 +155,7 @@ class MeasureTest(HomeCase):
         self.assertEqual([e["kind"] for e in r["events"]],
                          ["tool_use", "attachment", "tool_use", "tool_use", "tool_use"])
         self.assertEqual(r["cwd"], "/w")
+        self.assertEqual({e["cwd"] for e in r["events"] if e["kind"] == "tool_use"}, {"/w"})
 
     def test_reach(self):
         from desk import home

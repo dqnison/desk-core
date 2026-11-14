@@ -272,11 +272,12 @@ def write_targets(cmd, cwd="."):
     the text does not say which one, so all count."""
     cmd = expand_vars(cmd or "")
     base = effective_cwd(cmd, cwd)
-    raw = [a or b for a, b in _REDIRECT_RE.findall(cmd)]
-    raw += _CPMV_RE.findall(cmd)
-    for group in _RM_RE.findall(cmd):
+    shell = without_heredocs(cmd)
+    raw = [a or b for a, b in _REDIRECT_RE.findall(shell)]
+    raw += _CPMV_RE.findall(shell)
+    for group in _RM_RE.findall(shell):
         raw += group.split()
-    for group in _GIT_RESTORE_RE.findall(cmd):
+    for group in _GIT_RESTORE_RE.findall(shell):
         raw += group.split()
     scripted = _INTERP_RE.search(cmd) and _SCRIPT_WRITE_RE.search(cmd)
     if _INPLACE_RE.search(cmd) or scripted:
@@ -510,14 +511,18 @@ class Fired:
 NAMED_FILE = "desk.yml"
 
 
-def named_triggers(home):
-    """`triggers:` of `<home>/desk.yml`: name → list of `when:` entries. A rule may
-    write a name instead of an entry (`when: [mr]`) — one definition for a trigger
-    many rules share."""
-    raw = homelib.config(home).get("triggers")
-    if not isinstance(raw, dict):
-        return {}
-    return {str(k): [e for e in as_list(v) if isinstance(e, dict)] for k, v in raw.items()}
+def named_triggers(home, context=None):
+    """Named triggers: name → `when:` entries, from `<home>/desk.yml` plus the active
+    place's `contexts/<context>/desk.yml` (its entries extend a root name). A portable
+    rule says `when: [tracker]`; what a tracker is — which CLI, which API — the place
+    says; where no place defines it, the rule does not fire."""
+    out = {}
+    for cfg in (homelib.config(home), homelib.context_config(home, context)):
+        raw = cfg.get("triggers")
+        if isinstance(raw, dict):
+            for k, v in raw.items():
+                out.setdefault(str(k), []).extend(e for e in as_list(v) if isinstance(e, dict))
+    return out
 
 
 def entries_of(rule, named):
@@ -531,10 +536,11 @@ def entries_of(rule, named):
     return out
 
 
-def fired(rules, call, home):
+def fired(rules, call, home, context=None):
     """Rules whose `when:` matches the call, plus the rules they bring along
-    (`also:` — paths relative to DESK_HOME): [Fired]."""
-    named = named_triggers(home)
+    (`also:` — paths relative to DESK_HOME): [Fired]. `context` — the active place,
+    whose desk.yml adds named triggers."""
+    named = named_triggers(home, context)
     out = []
     for r in rules:
         hits = []
@@ -559,7 +565,7 @@ def existing_paths(call):
     """Absolute paths a Bash command names that exist (variables substituted)."""
     if call.tool != "Bash":
         return []
-    cmd = expand_vars(call.command)
+    cmd = without_heredocs(expand_vars(call.command))
     base = effective_cwd(cmd, call.cwd)
     return [p for p in _resolve(_PATHISH_RE.findall(cmd), base) if p.startswith("/") and os.path.exists(p)]
 
