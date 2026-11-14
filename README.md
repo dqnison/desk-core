@@ -214,6 +214,7 @@ match:
 portable: ['desk.md', 'process/**']   # переносимый слой — без имён мест
 entry: '~/.claude/CLAUDE.md'          # вход ассистента: desk lint сверит @-импорты с ярусом import
 triggers: {…}                         # общие триггеры, см. «when:»
+header: true                          # шапка сессии первым блоком (по умолчанию да)
 ```
 
 ## Расширения: проверки кодом
@@ -237,11 +238,18 @@ def cases(record, home):                   # для desk measure: [(ok, что)]
 Пример — [template/ext/no_force_push.py](template/ext/no_force_push.py).
 
 **События.** Для своего поведения, которое не правило, — `@ext.on(событие)`:
-`SessionStart` (текст идёт в отдельный выхлоп старта вместе со строкой контекста —
-шапка, состояние чекаута), `UserPromptSubmit`, `PreToolUse`, `PostToolUse` (текст
-идёт модели с выхлопом хука), `SessionEnd` (журнал; вывода нет). Обработчик получает
-`ev` с `session`, `call`, `data` (вход хука), `state` (учёт сессии; `state.notes` —
-для «сказать один раз») и `changed` (что команда реально изменила).
+`SessionStart` (текст идёт в отдельный выхлоп старта вместе со строкой контекста),
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse` (текст идёт модели с выхлопом хука),
+`SessionEnd` (журнал; вывода нет). Обработчик получает `ev` с `session`, `call`,
+`data` (вход хука), `state` (учёт сессии; `state.notes` — для «сказать один раз»),
+`changed` (что команда реально изменила) и на старте — `header`.
+
+**Шапка сессии.** Ядро собирает её само: заголовок «контекст → репозиторий» и строку
+«подача» (вес в сессии и за триггерами), рисует рамкой (CLI) и HTML для виджета
+(десктоп) с инструкцией модели вывести первым блоком. Расширение добавляет свои
+строки и сигналы: `ev.header.row("чекаут", "main · чисто", "🌿", "git-branch")`,
+`ev.header.signal("уборка", "…", "🧹", "trash")` — сигналы идут под разделителем
+и подсвечены. Выключается `header: false` в `desk.yml`.
 
 ```python
 @ext.on("PreToolUse")
@@ -292,8 +300,9 @@ hooks/hooks.json       хуки: SessionStart (слот 0 + 3 слота фай�
 bin/desk               CLI
 bin/desk-hook          вход всех хуков
 desk/                  пакет: frontmatter, home, when, deliver, guards, ext, checks,
-                       hook, transcripts, measure, lint, messages, cli
+                       header, hook, transcripts, measure, lint, messages, cli
 template/              скелет DESK_HOME для desk init
-tests/                 python3 -m unittest
+tests/                 python3 -m unittest; .githooks/pre-commit гоняет их перед коммитом
+                       (git config core.hooksPath .githooks): код ядра работает живыми хуками
 docs/decisions.md      что проверено и почему сделано так
 ```

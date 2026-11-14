@@ -106,3 +106,31 @@ heredoc text.
   shared rules a repository rule brings; the header in its own start output (slot 0)
   so header and files never share one ~10k-character output; a reset mark so the
   parallel start slots reset the state once.
+
+## Independent review (14.11) and what changed
+
+A fresh reviewer read the live engine. Confirmed and fixed:
+
+- Guards looked at the tail of the command from `git commit` to its end: `git commit
+  --amend --no-edit && python3 -m unittest` was denied (the `-m` of unittest), `echo
+  'Generated with'` after a clean commit was denied, `-am`, `HUSKY=0 git commit`,
+  `if git commit`, `(git commit` were not checked. Now a shell line is split into
+  simple commands (quotes, `$(…)`, heredoc bodies, groups) and each `git commit`
+  is judged alone; the message flag may sit in a short-flag group.
+- MR attribution was missed for the CLI run through a venv interpreter: the private
+  check now looks at any shell segment that creates a MR, and at MCP MR tools.
+- `~nouser` paths raised inside the hook and turned all guards off for that call.
+- Every Bash call snapshotted `git status` of DESK_HOME too: a parallel session's
+  edit in the desk came back as this command's change. Now only checkouts the
+  command works in, writes to or names; `GIT_OPTIONAL_LOCKS=0`, `-z` parsing.
+- `~/desk/…` and `$HOME/desk/…` in a command counted as work in a repository named
+  in the path; URLs too.
+- Smaller: the start header ran extension code under the session lock; a deny did
+  not queue the tail of a big rule; `DESK_NO_DENY` did not open gates; an absolute
+  glob lost its trailing slash; stale snapshots of calls that never ran piled up.
+
+Kept on purpose: `git diff` fires the `git` trigger (the git rule covers comparing
+branches); `touches_home` treats it as reading.
+
+The session header moved into the core (`desk/header.py`); extensions add rows
+and signals. The core has its own pre-commit running the tests.
