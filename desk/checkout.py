@@ -203,7 +203,7 @@ def busy(cwd, session, st, **kw):
     if peers:
         reasons.append("в нём работает другая сессия ассистента — " + ", ".join(
             f"{p.sid[:8]} ({'ход неизвестен' if p.minutes is None else f'ход {p.minutes} мин назад'})" for p in peers))
-    if st is not None and st.head != st.integration and ext.in_work_of(st.head, session) is True:
+    if st is not None and st.head != st.integration and ext.in_work_of((st.head,), session.context) is True:
         reasons.append(f"ветка {st.head} — задача в работе")
     return reasons
 

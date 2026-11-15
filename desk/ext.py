@@ -87,22 +87,42 @@ def emit(event, ev):
 
 
 IN_WORK = []
+CHECKOUTS = []
+
+
+def checkouts(fn):
+    """`fn(session) -> [path]` — checkouts of the machine the worktree sweep and the
+    change_directory hint know besides the session's own (a registry of repos, say)."""
+    CHECKOUTS.append(fn)
+    return fn
+
+
+def checkouts_of(session):
+    out = []
+    for fn in CHECKOUTS:
+        try:
+            out += [p for p in fn(session) or [] if p not in out]
+        except Exception:
+            pass
+    return out
 
 
 def in_work(fn):
-    """`fn(branch, session) -> True | False | None` — is the work on a branch alive
-    (a tracker status of its task, say). Used by checkout busy and worktree verdicts."""
+    """`fn(names, context) -> True | False | None` — is the work on a branch alive (a
+    tracker status of its task, say). `names` — the branch and, for a worktree, its
+    folder; `context` — the place of the checkout (desk.home.Context or None). Used by
+    checkout busy and worktree verdicts."""
     IN_WORK.append(fn)
     return fn
 
 
-def in_work_of(branch, session):
+def in_work_of(names, context):
     """True when any resolver says so; False when one says no and none says yes;
     None — nobody knows."""
     seen = None
     for fn in IN_WORK:
         try:
-            r = fn(branch, session)
+            r = fn(tuple(names), context)
         except Exception:
             r = None
         if r is True:
@@ -142,7 +162,7 @@ def _source(fn):
 def load(home=None):
     """Import the core checks and `<home>/ext/*.py` once per process; errors —
     [(file, message)] (a broken extension must not break the hook)."""
-    from . import checkout, checks, journal, threads  # registers the universal checks and handlers
+    from . import checkout, checks, journal, threads, trees  # registers the universal checks and handlers
     home = Path(home or desk_home())
     key = str(home)
     if key in _loaded:

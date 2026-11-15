@@ -157,11 +157,11 @@ class BusyTest(unittest.TestCase):
 
     def test_branch_in_work_by_resolver(self):
         st = SimpleNamespace(head="feature/t-2/x", integration="develop")
-        resolver = ext.in_work(lambda branch, session: branch.startswith("feature/t-2"))
+        resolver = ext.in_work(lambda names, context: names[0].startswith("feature/t-2"))
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 kw = dict(sessions_dir=Path(tmp), transcripts_dir=Path(tmp))
-                self.assertEqual(checkout.busy(tmp, SimpleNamespace(session_id="own"), st, **kw),
+                self.assertEqual(checkout.busy(tmp, SimpleNamespace(session_id="own", context=None), st, **kw),
                                  ["ветка feature/t-2/x — задача в работе"])
         finally:
             ext.IN_WORK.remove(resolver)
