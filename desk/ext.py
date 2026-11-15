@@ -116,7 +116,7 @@ def _source(fn):
 def load(home=None):
     """Import the core checks and `<home>/ext/*.py` once per process; errors —
     [(file, message)] (a broken extension must not break the hook)."""
-    from . import checks, threads  # registers the universal checks
+    from . import checks, journal, threads  # registers the universal checks and handlers
     home = Path(home or desk_home())
     key = str(home)
     if key in _loaded:

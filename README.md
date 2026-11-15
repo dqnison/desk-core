@@ -216,6 +216,8 @@ portable: ['desk.md', 'process/**']   # переносимый слой — бе
 entry: '~/.claude/CLAUDE.md'          # вход ассистента: desk lint сверит @-импорты с ярусом import
 triggers: {…}                         # общие триггеры, см. «when:»
 header: true                          # шапка сессии первым блоком (по умолчанию да)
+journal: journal                      # журнал сессий: строка на выходе, хвост на старте
+meta_goal: 25                         # сигнал «мета» в шапке: сессий в DESK_HOME за 7 дн > 25 %
 require_tier: ['process/*.md']         # desk lint: у этих файлов обязателен tier
 interfaces: {local: 'как поднять', …}  # desk lint: словарь имён файлов в contexts/ —
                                       # в projects/<репо>/ только они, один ярус на всех слоях
