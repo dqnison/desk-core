@@ -261,7 +261,7 @@ def run(home=None):
         try:
             for path, line, message in check.fn(home):
                 out.add(home, path, line, check.id, message)
-        except Exception as e:   # noqa: BLE001
+        except Exception as e:
             out.add(home, home, None, check.id, f"check crashed: {e!r}")
     return sorted(out)
 

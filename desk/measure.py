@@ -139,7 +139,7 @@ def compliance(rules, records, home):
                 continue
             try:
                 cases = fn(rec, home, sessions.of(rec["cwd"]))
-            except Exception as e:   # noqa: BLE001
+            except Exception as e:
                 cases = [(False, f"check crashed: {e!r}")]
             for good, what in cases:
                 total += 1

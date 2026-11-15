@@ -58,7 +58,7 @@ _MSG_ARG_RE = re.compile(
     r"""(?<!\S)(?:-(?!-)[a-zA-Z]*m|--message)(?:=|\s*)(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|(\S+))""")
 _NO_SUBJECT_RE = re.compile(r"(?<!\S)(?:-[a-zA-Z]*[FCct]\b|--(?:file|template|reuse-message|reedit-message|fixup|squash)\b)")
 
-from .when import command_words, shell_segments  # noqa: E402
+from .when import command_words, shell_segments
 
 
 def commit_segments(cmd):
@@ -163,7 +163,7 @@ def evaluate(rules, call, session):
     for cid, check in ext.LIVE.items():
         try:
             res = check.fn(call, session)
-        except Exception as e:   # noqa: BLE001 — a broken check must not block work
+        except Exception as e:   # a broken check must not block work
             out.append(Decision("ask", cid, f"desk: проверка {cid} упала: {e!r}"))
             continue
         if isinstance(res, Decision):

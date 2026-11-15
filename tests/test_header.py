@@ -37,7 +37,7 @@ class RenderTest(unittest.TestCase):
         self.assertNotIn("<script", code)
 
     def test_plural(self):
-        f = lambda n: hdr.plural(n, "триггером", "триггерами", "триггерами")  # noqa: E731
+        f = lambda n: hdr.plural(n, "триггером", "триггерами", "триггерами")
         self.assertEqual([f(1), f(2), f(11), f(21)], ["триггером", "триггерами", "триггерами", "триггером"])
 
 

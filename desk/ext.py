@@ -27,8 +27,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from .home import desk_home  # noqa: F401 — re-exported for extensions
-from .when import Call, glob_match, paths_match, write_targets  # noqa: F401
+from .home import desk_home  # re-exported for extensions
+from .when import Call, glob_match, paths_match, write_targets
 
 
 @dataclass
@@ -79,7 +79,7 @@ def emit(event, ev):
     for fn in EVENTS.get(event, []):
         try:
             text = fn(ev)
-        except Exception as e:   # noqa: BLE001
+        except Exception as e:
             text = f"[desk] обработчик {getattr(fn, '__name__', fn)} ({event}) упал: {e!r}"
         if text:
             out.append(str(text))
@@ -116,7 +116,7 @@ def _source(fn):
 def load(home=None):
     """Import the core checks and `<home>/ext/*.py` once per process; errors —
     [(file, message)] (a broken extension must not break the hook)."""
-    from . import checks  # noqa: F401 — registers the universal checks
+    from . import checks  # registers the universal checks
     home = Path(home or desk_home())
     key = str(home)
     if key in _loaded:
@@ -131,7 +131,7 @@ def load(home=None):
             mod = importlib.util.module_from_spec(spec)
             sys.modules[name] = mod
             spec.loader.exec_module(mod)
-        except Exception as e:   # noqa: BLE001 — anything an extension raises
+        except Exception as e:   # anything an extension raises
             errors.append((f.name, repr(e)))
     _loaded[key] = errors
     return errors
