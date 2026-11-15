@@ -1,4 +1,5 @@
 import os
+import sys
 
 from desk import ext, guards, home, when as wh
 from tests.helpers import HomeCase, git_checkout
@@ -152,17 +153,20 @@ class ExtensionTest(HomeCase):
     files = {
         "ext/no_force.py": """
 from desk import ext
+from forcelib import NEEDLE
 
 @ext.live("no-force-push", "no force push")
 def no_force(call, session):
-    if "push --force" in call.command:
+    if NEEDLE in call.command:
         return ("deny", "desk: no force push")
 """,
+        "ext/forcelib/__init__.py": 'NEEDLE = "push --force"\n',   # shared code, not an extension
         "ext/broken.py": "raise RuntimeError('boom')\n",
     }
 
     def tearDown(self):
         ext.LIVE.pop("no-force-push", None)
+        sys.modules.pop("forcelib", None)
         super().tearDown()
 
     def test_extension_decides_and_broken_one_is_reported(self):

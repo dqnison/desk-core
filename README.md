@@ -123,7 +123,7 @@ claude --plugin-dir ~/desk-core
 
 | ключ | срабатывает на | пример |
 | --- | --- | --- |
-| `tool` | имя инструмента, glob | `tool: 'mcp__grafana*'` |
+| `tool` | имя инструмента, glob | `tool: 'mcp__monitoring*'` |
 | `command` | Bash-команду, regex с учётом регистра | `command: '\bdocker compose\b'` |
 | `input` | поле входа инструмента, regex | `input: {path: '/logs'}` |
 | `paths` | файл, который вызов **пишет** (Edit/Write или запись из Bash: `>`, `tee`, `sed -i`, `cp`, `mv`, `rm`, скрипт) | `paths: ['billing/']` |
@@ -239,6 +239,8 @@ def cases(record, home):                   # для desk measure: [(ok, что)]
 ```
 
 Есть ещё `@ext.lint`. Упавшее расширение хук не ломает — ошибка приходит строкой.
+Общий код расширений — пакетом в подпапке (`ext/mylib/`): расширениями грузятся
+только `ext/*.py`, а сама `ext/` стоит в `sys.path`, так что `from mylib import x`.
 Пример — [template/ext/no_force_push.py](template/ext/no_force_push.py).
 
 **События.** Для своего поведения, которое не правило, — `@ext.on(событие)`:

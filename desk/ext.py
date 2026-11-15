@@ -19,6 +19,8 @@ where it can only remark) and returns None or (`deny`|`ask`, reason).
 `compliance(record, home)` runs over transcripts (`desk measure`) and returns
 [(ok, what)] — one case per situation the rule applies to.
 The engine's own universal checks are registered the same way (desk.checks).
+Code shared by extensions lives in a package under `ext/` (only `ext/*.py` are
+loaded as extensions); `ext/` is on sys.path, so `from mylib import x` works.
 """
 import importlib.util
 import sys
@@ -120,6 +122,8 @@ def load(home=None):
     if key in _loaded:
         return _loaded[key]
     errors = []
+    if (home / "ext").is_dir() and str(home / "ext") not in sys.path:
+        sys.path.insert(0, str(home / "ext"))   # shared code of extensions: ext/<pkg>/
     for f in sorted((home / "ext").glob("*.py")) if (home / "ext").is_dir() else []:
         name = f"desk_ext_{abs(hash(key)) % 10**8}_{f.stem}"
         try:
