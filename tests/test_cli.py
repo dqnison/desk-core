@@ -108,6 +108,29 @@ class LintTest(HomeCase):
         self.assertEqual(got, {("desk.md", "import"), ("process/c.md", "@-imported")})
 
 
+class ThreadsLintTest(HomeCase):
+    files = {
+        "now.md": "# Нити\n\n## Ok\n→ [ok.md](threads/ok.md)\n\n## Done\n→ [done.md](threads/done.md)\n",
+        "threads/ok.md": "---\nstatus: open\n---\n# Ok\n\n## Дальше\nx\n",
+        "threads/lost.md": "---\nstatus: open\n---\n# Lost\n",
+        "threads/done.md": "---\nstatus: closed\nclosed: 2026-11-01\n---\n# Done\n\n**Закрыта 2026-11-01.** x\n",
+        "contexts/acme/now.md": "# Нити места\n\n## Big\n" + "x" * 5000 + "\n→ [a.md](threads/a.md)\n",
+        "contexts/acme/threads/a.md": "---\nstatus: open\n---\n# A\n\n## Дальше\ny\n",
+    }
+
+    def test_threads_and_freshness(self):
+        got = {(rel, check, msg.split(" ")[0]) for rel, _, check, msg in lint.run(self.home)
+               if check in ("threads", "freshness")}
+        self.assertEqual(got, {
+            ("threads/lost.md", "threads", "открытая"),       # not in now.md, no «Дальше»
+            ("threads/lost.md", "threads", "у"),
+            ("now.md", "threads", "закрытая"),               # a closed thread still listed
+            ("contexts/acme/now.md", "freshness", "contexts/acme/now.md"),   # over 4 KB
+        })
+        from desk import threads
+        self.assertEqual([p.name for p in threads.open_threads(self.home)], ["lost.md", "ok.md", "a.md"])
+
+
 def rec(type_, **kw):
     return json.dumps({"type": type_, **kw})
 
@@ -191,6 +214,43 @@ class TriggerReachTest(MeasureTest):
         ])
         got = measure.trigger_reach(home.load_rules(self.home), self.records(), self.home)
         self.assertEqual(got, {"commit": (3, 1)})     # s1 without c.md, s3 delivered it, s4 out of scope
+
+
+class RepeatsTest(HomeCase):
+    """An extra delivery is the same label from another hook event in one stretch."""
+    files = {"process/git.md": "---\ntier: action\n---\n" + "x" * 100,
+             "process/tests.md": "---\ntier: action\n---\nt\n",
+             "process/loop.md": "---\ntier: session\n---\nl\n"}
+
+    @staticmethod
+    def att(delivery, *labels):
+        text = "[desk] x\n" + "\n".join(f"--- {lab} ---\nbody" for lab in labels)
+        return {"kind": "attachment", "text": text, "delivery": delivery}
+
+    def test_phantoms_are_not_copies_real_repeat_is(self):
+        git = ("PreToolUse", "t1")
+        events = [
+            self.att("SessionStart", "process/loop.md (часть 1 из 2)"),
+            self.att("SessionStart", "process/loop.md (часть 1 из 2)", "process/loop.md (часть 2 из 2)"),
+            self.att(git, "process/git.md"),
+            self.att(git, "process/git.md"),          # the same call, a second record
+            {"kind": "compact"},
+            self.att("SessionStart", "process/loop.md (часть 1 из 2)"),   # needed again after compaction
+            self.att(("PreToolUse", "t2"), "process/git.md"),
+            self.att(("PreToolUse", "t3"), "process/git.md"),           # a real repeat
+        ]
+        out = measure.repeats([{"events": events, "cwd": str(self.home)}], self.home)
+        self.assertEqual([(d["path"], d["copies"], d["extra_bytes"]) for d in out],
+                         [("process/git.md", 1, (self.home / "process/git.md").stat().st_size)])
+
+    def test_read_is_output_not_mention(self):
+        events = [{"kind": "tool_use", "name": "Bash", "input": {"command": "git add process/tests.md"},
+                   "cwd": str(self.home)},
+                  self.att(("PreToolUse", "t1"), "process/tests.md")]
+        rec = {"events": events, "cwd": str(self.home)}
+        self.assertEqual(measure.repeats([rec], self.home), [])
+        events[0]["input"]["command"] = "cat process/tests.md"
+        self.assertEqual(measure.repeats([rec], self.home)[0]["after_read"], 1)
 
 
 class EntryScriptsTest(HomeCase):

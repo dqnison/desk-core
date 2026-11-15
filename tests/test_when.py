@@ -215,3 +215,10 @@ class WriteTargetsTest(unittest.TestCase):
         self.assertEqual(wh.Call(tool="Edit", input={"file_path": "/x/y.md"}).targets, ["/x/y.md"])
         self.assertEqual(wh.Call(tool="Bash", input={"command": "echo 1 > /x/y.md"}).targets, ["/x/y.md"])
         self.assertEqual(wh.Call(tool="Read", input={"file_path": "/x/y.md"}).targets, [])
+
+    def test_named_paths_resolve_after_cd(self):
+        call = wh.Call(tool="Bash", input={"command": "W=/r/app; cd $W && cat src/a.py ../b/c.md"}, cwd="/x")
+        self.assertIn("/r/app/src/a.py", call.named_paths)
+        self.assertIn("/r/b/c.md", call.named_paths)
+        self.assertEqual(wh.Call(tool="Read", input={"file_path": "/r/a"}).named_paths, [])
+

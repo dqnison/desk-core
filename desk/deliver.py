@@ -279,6 +279,20 @@ def session_lock(session_id, wait=LOCK_WAIT):
 
 
 # ------------------------------------------------------------- session slots
+def portions(rules, budget=BUDGET):
+    """({rel: number of the portion it starts in}, portions) — the packing the hook
+    does for these rules, call after call."""
+    state, rows, n = State(""), {}, 0
+    while True:
+        send, rest = bundle(rules, state, budget)
+        if not send:
+            return rows, n
+        n += 1
+        for u in send:
+            rows.setdefault(u.rel, n)
+        state.sent(send, rest)
+
+
 def partition(rules, slots, budget=BUDGET):
     """Session-tier units spread over `slots` outputs, greedy and deterministic;
     what fits nowhere is listed by path. A late small part may land in an earlier

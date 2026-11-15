@@ -88,6 +88,15 @@ class Call:
         out += _resolve([m for m in _GIT_C_RE.findall(cmd)], base)
         return out
 
+    @functools.cached_property
+    def named_paths(self):
+        """Paths a Bash command names (variables substituted), resolved against the
+        directory it works in — existing or not."""
+        if self.tool != "Bash":
+            return []
+        cmd = expand_vars(self.command)
+        return _resolve(_PATHISH_RE.findall(cmd), effective_cwd(cmd, self.cwd))
+
     def new_text(self):
         """Text the call puts into files: Edit new_string, Write content, MultiEdit
         edits; Bash — the command itself when it writes (a heredoc lives in it)."""
@@ -550,6 +559,12 @@ def fired(rules, call, home, context=None):
                 hits.append((entry, f"{label}: {d}" if label else d))
         if hits:
             out.append(Fired(r, hits))
+    return with_also(out, rules)
+
+
+def with_also(fired_rules, rules):
+    """Fired rules plus the ones they bring along (`also:`), each once."""
+    out = list(fired_rules)
     by_rel = {r.rel: r for r in rules}
     have = {f.rule.rel for f in out}
     for f in list(out):
@@ -592,12 +607,8 @@ def repos_touched(call, session):
     DESK_HOME are desk files, not repository work."""
     repos = {session.repo} if session.repo else set()
     paths = list(call.targets)
-    if call.tool == "Bash":
-        cmd = expand_vars(call.command)
-        base = effective_cwd(cmd, call.cwd)
-        paths += call.dirs
-        paths += [p for p in _resolve(_PATHISH_RE.findall(cmd), base)
-                  if p.startswith("/") and os.path.exists(p)]
+    paths += call.dirs
+    paths += [p for p in call.named_paths if p.startswith("/") and os.path.exists(p)]
     for p in paths:
         if homelib.is_inside(p, session.home):
             continue

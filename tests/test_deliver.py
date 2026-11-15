@@ -37,6 +37,18 @@ class UnitsTest(HomeCase):
         self.assertGreater(len(u), 1)
         self.assertTrue(all(x.size <= dl.BUDGET for x in u))
 
+    def test_portions_number_files_as_the_hook_packs_them(self):
+        rows, n = dl.portions([self.rule("process/small.md"), self.rule("process/big.md")])
+        self.assertEqual(n, 2)                                  # big.md is two parts
+        self.assertEqual(rows, {"process/small.md": 1, "process/big.md": 1})
+
+    def test_registered_slots_from_settings(self):
+        from desk import cli
+        settings = self.tmp / "settings.json"
+        settings.write_text(json.dumps(cli.hooks_block()))
+        self.assertEqual(cli.registered_slots(settings), cli.SLOTS)
+        self.assertEqual(cli.registered_slots(self.tmp / "none.json"), 1)
+
     def test_bundle_budget_and_state(self):
         rules = [self.rule("process/big.md"), self.rule("process/small.md")]
         state = dl.State("s1")

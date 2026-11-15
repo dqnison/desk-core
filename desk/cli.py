@@ -1,6 +1,7 @@
 """`desk` — one entry: lint, measure, why, init, doctor."""
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -65,7 +66,7 @@ def cmd_why(a):
     if broken:
         print("Не разобраны (lint): " + ", ".join(broken))
 
-    fired = dl.order_action(wh.fired(hook._deliverable(good, session, repos), call, home, session.context_name))
+    fired = dl.order_action(wh.fired(hook.deliverable(good, session, repos), call, home, session.context_name))
     print("\nСработают правила:" if fired else "\nНи одно правило не сработало.")
     for f in fired:
         gate = "  [gate]" if f.gated else ""
@@ -94,6 +95,17 @@ def cmd_why(a):
     if state.pending:
         print("  в очередь на следующий вызов: " + ", ".join(state.pending))
     return 0
+
+
+def registered_slots(settings=None):
+    """File slots of SessionStart in a Claude Code settings.json (`--slot N`, N ≥ 1;
+    slot 0 is the header); not registered — 1."""
+    try:
+        hooks = json.loads(Path(settings or Path.home() / ".claude" / "settings.json").read_text())["hooks"]
+        cmds = [h["command"] for m in hooks.get("SessionStart", []) for h in m.get("hooks", [])]
+        return sum(1 for c in cmds if re.search(r"--slot [1-9]", c)) or 1
+    except Exception:
+        return 1
 
 
 def hooks_block():

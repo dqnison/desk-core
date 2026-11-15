@@ -5,11 +5,15 @@ reach       — of the sessions where a rule's `when:` fired, in how many the ru
 compliance  — share of cases where a check holds: extension checks
               (desk.ext.compliance) plus checks derived from data guards
 weight      — bytes of input each tier costs (no transcripts needed)
+repeats     — extra deliveries: a file given again in one stretch of a session, or
+              given after the session had read it itself
 
 Sessions inside DESK_HOME are left out of reach (rules are edited there, not
 applied) but not out of compliance.
 """
 import datetime
+import os
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -110,6 +114,59 @@ def trigger_reach(rules, records, home):
             out[n][0] += 1
             out[n][1] += any(_delivered(r, events, upto) for r in files)
     return {k: tuple(v) for k, v in out.items()}
+
+
+LABEL_RE = re.compile(r"^--- (\S+\.md(?: \(часть \d+ из \d+\))?) ---$", re.M)
+
+
+def repeats(records, home):
+    """Extra deliveries of a file within one session, between compactions: `copies` —
+    a hook gave the same label again from another event; `after_read` — a hook gave a
+    file the session had already read (Read or cat/sed -n/head/tail).
+    [{path, sessions, copies, after_read, extra_bytes}], most repeated first."""
+    home = Path(home)
+    by = {}
+    for rec in records:
+        seen, read, counts = {}, set(), {}
+        for ev in rec["events"]:
+            if ev["kind"] == "compact":
+                seen, read = {}, set()
+                continue
+            if ev["kind"] == "tool_use":
+                inp = ev.get("input") or {}
+                if ev["name"] == "Read":
+                    read.add(os.path.normpath(str(inp.get("file_path", ""))))
+                elif ev["name"] == "Bash":
+                    read.update(wh.read_targets(str(inp.get("command", "")), ev.get("cwd") or rec.get("cwd") or "."))
+                continue
+            if ev["kind"] != "attachment":
+                continue
+            for lab in set(LABEL_RE.findall(ev["text"])):
+                path = lab.split(" (часть", 1)[0]
+                parts = re.search(r"из (\d+)\)$", lab)
+                c = counts.setdefault(path, {"copies": 0, "after_read": 0, "bytes": 0})
+                try:
+                    unit = (home / path).stat().st_size // (int(parts.group(1)) if parts else 1)
+                except OSError:
+                    unit = 0
+                if lab in seen:
+                    if seen[lab] != ev.get("delivery"):
+                        c["copies"] += 1
+                        c["bytes"] += unit
+                    continue
+                if str(home / path) in read:
+                    c["after_read"] += 1
+                    c["bytes"] += unit
+                seen[lab] = ev.get("delivery")
+        for path, c in counts.items():
+            if c["copies"] or c["after_read"]:
+                d = by.setdefault(path, {"path": path, "sessions": 0, "copies": 0, "after_read": 0,
+                                         "extra_bytes": 0})
+                d["sessions"] += 1
+                d["copies"] += c["copies"]
+                d["after_read"] += c["after_read"]
+                d["extra_bytes"] += c["bytes"]
+    return sorted(by.values(), key=lambda d: -(d["copies"] + d["after_read"]))
 
 
 def guard_checks(rules):

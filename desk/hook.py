@@ -74,7 +74,7 @@ def _rules(session):
     return [r for r in homelib.load_rules(session.home) if not r.error]
 
 
-def _deliverable(rules, session, repos):
+def deliverable(rules, session, repos):
     """In-scope rules whose `when:` may deliver them: tiers session and action
     (import is always in context, link has no carrier)."""
     return [r for r in rules if r.tier in ("session", "action") and homelib.in_scope(r, session, repos)]
@@ -157,7 +157,7 @@ def session_start(data, slot, slots):
 def prompt(data):
     session = homelib.session_from(data)
     call = wh.Call.from_hook(data)
-    rules = _deliverable(_rules(session), session, {session.repo})
+    rules = deliverable(_rules(session), session, {session.repo})
     fired = dl.order_action(wh.fired(rules, call, session.home, session.context_name))
     ext.load(session.home)
     with dl.session_lock(session.session_id):
@@ -196,7 +196,7 @@ def pre_tool(data):
     repos = wh.repos_touched(call, session)
     all_rules = _rules(session)
     scoped = [r for r in all_rules if homelib.in_scope(r, session, repos)]
-    fired = dl.order_action(wh.fired(_deliverable(all_rules, session, repos), call, session.home,
+    fired = dl.order_action(wh.fired(deliverable(all_rules, session, repos), call, session.home,
                                      session.context_name))
     newcomers = newcomer_rules(all_rules, session, repos)
     with dl.session_lock(session.session_id):
@@ -406,7 +406,7 @@ def report_changes(changed, call, session, all_rules, state):
             notes.append(msg.unconfirmed(d.reason))
             if d.rule:
                 fired.append(wh.Fired(d.rule, [(None, "запрет правила")]))
-        fired += wh.fired(_deliverable(all_rules, session, repos), fake, session.home, session.context_name)
+        fired += wh.fired(deliverable(all_rules, session, repos), fake, session.home, session.context_name)
     if not notes and not fired:
         return ""
     notes = list(dict.fromkeys(notes))
