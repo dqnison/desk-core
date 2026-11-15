@@ -216,6 +216,9 @@ portable: ['desk.md', 'process/**']   # переносимый слой — бе
 entry: '~/.claude/CLAUDE.md'          # вход ассистента: desk lint сверит @-импорты с ярусом import
 triggers: {…}                         # общие триггеры, см. «when:»
 header: true                          # шапка сессии первым блоком (по умолчанию да)
+require_tier: ['process/*.md']         # desk lint: у этих файлов обязателен tier
+interfaces: {local: 'как поднять', …}  # desk lint: словарь имён файлов в contexts/ —
+                                      # в projects/<репо>/ только они, один ярус на всех слоях
 ```
 
 `contexts/<место>/desk.yml` — триггеры места под теми же именами: они дополняют корневые,

@@ -108,6 +108,30 @@ class LintTest(HomeCase):
         self.assertEqual(got, {("desk.md", "import"), ("process/c.md", "@-imported")})
 
 
+class StructureLintTest(HomeCase):
+    files = {
+        "desk.yml": "require_tier: ['process/*.md']\ninterfaces:\n  local: run it locally\n  context: hub\n",
+        "process/a.md": "# no tier\n",
+        "process/local.md": "---\ntier: link\n---\n# l\n",
+        "contexts/acme/context.md": "---\nmatch: {default: true}\n---\n[l](projects/shop/local.md) [x](projects/shop/notes.md)\n",
+        "contexts/acme/projects/shop/local.md": "---\ntier: session\n---\n# l\n",
+        "contexts/acme/projects/shop/notes.md": "# n\n",
+        "contexts/acme/stray.md": "# s\n",
+        "contexts/acme/threads/t.md": "---\nstatus: closed\nclosed: 2026-11-01\n---\n**Закрыта 2026-11-01.**\n",
+    }
+
+    def test_hub_tier_interfaces(self):
+        got = {(rel, check, msg.split(":")[0]) for rel, _, check, msg in lint.run(self.home)
+               if check in ("hub", "tier", "interfaces")}
+        self.assertEqual(got, {
+            ("contexts/acme/context.md", "hub", "файл места не назван в хабе"),     # stray.md
+            ("process/a.md", "tier", "нет tier"),
+            ("contexts/acme/projects/shop/notes.md", "interfaces", "имя 'notes' не из словаря интерфейсов desk.yml"),
+            ("contexts/acme/projects/shop/local.md", "interfaces",
+             "интерфейс 'local' приезжает разными ярусами — contexts/acme/projects/shop/local.md"),
+        })
+
+
 class ThreadsLintTest(HomeCase):
     files = {
         "now.md": "# Нити\n\n## Ok\n→ [ok.md](threads/ok.md)\n\n## Done\n→ [done.md](threads/done.md)\n",

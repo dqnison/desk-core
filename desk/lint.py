@@ -8,6 +8,10 @@
   budget      — an action rule fits one portion (deliver.BUDGET); an import rule
                 is at most IMPORT_MAX bytes (it costs every session)
   contexts    — at most one `match.default`; `match` has known keys
+  hub         — a context's context.md names every file of the context (threads aside)
+  tier        — files matching `require_tier:` of desk.yml carry a `tier`
+  interfaces  — with `interfaces:` in desk.yml: a repository file is named from it,
+                and one name arrives with one tier on every layer
   links       — relative markdown links lead to existing files and headings
   imports     — with `desk.entry` (or DESK_ENTRY) set: every import rule is
                 `@`-imported by the entry file, and only those
@@ -135,7 +139,7 @@ def _check_config(home, f, out, root):
     if not isinstance(raw, dict):
         out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
-    allowed = ("triggers", "portable", "entry", "header") if root else ("triggers",)
+    allowed = ("triggers", "portable", "entry", "header", "require_tier", "interfaces") if root else ("triggers",)
     unknown = [k for k in raw if k not in allowed]
     if unknown:
         out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")
@@ -235,6 +239,52 @@ def check_imports(home, rules, out):
             out.add(home, r.path, None, "imports", f"@-imported by {entry} but tier is {r.tier}")
 
 
+def check_hubs(home, out):
+    """The hub of a context is the only map of its files: each .md under the context
+    (threads aside) is linked from context.md."""
+    for ctx in homelib.load_contexts(home):
+        text = ctx.hub.read_text(encoding="utf-8", errors="replace")
+        named = {(ctx.path / t.partition("#")[0]).resolve()
+                 for _, line in frontmatter.prose_lines(text) for t in frontmatter.links(line)
+                 if t.partition("#")[0] and not re.match(r"^[a-z][a-z0-9+.-]*:", t)}
+        for p in homelib.iter_markdown(ctx.path):
+            if p != ctx.hub and "threads" not in p.relative_to(ctx.path).parts and p.resolve() not in named:
+                out.add(home, ctx.hub, 1, "hub", f"файл места не назван в хабе: {p.relative_to(ctx.path)}")
+
+
+def check_tiers(home, untiered, out):
+    """`require_tier:` of desk.yml — globs of files that must declare a tier."""
+    globs = [str(g) for g in frontmatter.as_list(homelib.config(home).get("require_tier"))]
+    for r in untiered:
+        if r.tier is None and any(wh.glob_match(g, r.rel) for g in globs):
+            out.add(home, r.path, 1, "tier", "нет tier: import|session|action|link во фронтматтере")
+
+
+def check_interfaces(home, untiered, out):
+    """`interfaces:` of desk.yml — the vocabulary of file names under contexts/: on the
+    repository layer (`projects/<repo>/`) a name comes from it, and a name means one
+    thing on every layer, so it arrives with one tier."""
+    names = homelib.config(home).get("interfaces")
+    if not names:
+        return
+    names = set(names) if isinstance(names, dict) else {str(n) for n in frontmatter.as_list(names)}
+    by_name = {}
+    for r in untiered:
+        parts = Path(r.rel).parts
+        if "threads" in parts:
+            continue
+        stem = Path(r.rel).stem
+        if parts[0] == "contexts" and "projects" in parts and stem not in names:
+            out.add(home, r.path, 1, "interfaces",
+                    f"имя {stem!r} не из словаря интерфейсов desk.yml: {', '.join(sorted(names))}")
+        if parts[0] == "contexts" or stem in names:
+            by_name.setdefault(stem, []).append(r)
+    for stem, rs in sorted(by_name.items()):
+        if len({r.tier for r in rs}) > 1:
+            where = "; ".join(f"{r.rel}: {r.tier}" for r in rs)
+            out.add(home, rs[0].path, 2, "interfaces", f"интерфейс {stem!r} приезжает разными ярусами — {where}")
+
+
 def run(home=None):
     home = Path(home or homelib.desk_home())
     out = Problems()
@@ -244,6 +294,10 @@ def run(home=None):
         check_rule(r, home, out, brought)
     check_named(home, out)
     check_contexts(home, out)
+    check_hubs(home, out)
+    untiered = homelib.load_rules(home, include_untiered=True)
+    check_tiers(home, untiered, out)
+    check_interfaces(home, untiered, out)
     check_links(home, out)
     check_imports(home, [r for r in rules if not r.error], out)
     for name, err in ext.load(home):
