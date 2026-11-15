@@ -62,6 +62,34 @@ def body(text):
     return split(text)[1].strip()
 
 
+# ------------------------------------------------------------------ prose
+LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+
+
+def prose_lines(text, skip_frontmatter=False):
+    """(line number, line) of a markdown text outside ``` fences (and the frontmatter)."""
+    lines = (text or "").splitlines()
+    start = 0
+    if skip_frontmatter and lines[:1] == ["---"]:
+        start = next((i for i in range(1, len(lines)) if lines[i].strip() == "---"), -1) + 1
+    fence = False
+    for n, line in enumerate(lines[start:], start + 1):
+        if line.lstrip().startswith("```"):
+            fence = not fence
+        elif not fence:
+            yield n, line
+
+
+def prose(line):
+    """What a reader reads in a line: inline code and link targets dropped."""
+    return re.sub(r"`[^`]*`", "`", re.sub(r"\]\([^)]*\)", "]", line))
+
+
+def links(line):
+    """Link targets of a line, inline code aside."""
+    return LINK_RE.findall(re.sub(r"`[^`]*`", "", line))
+
+
 # ------------------------------------------------------------------ block YAML
 def _strip_comment(s):
     """Drop a trailing ` # comment` outside quotes."""

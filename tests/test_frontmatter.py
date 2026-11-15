@@ -4,6 +4,13 @@ from desk import frontmatter as fm
 
 
 class FrontmatterTest(unittest.TestCase):
+    def test_prose_lines_and_links(self):
+        text = "---\ntier: link\n---\nsee [a](x.md#h) `[b](y.md)`\n```\n[c](z.md)\n```\nend"
+        self.assertEqual([n for n, _ in fm.prose_lines(text)], [1, 2, 3, 4, 8])
+        self.assertEqual([n for n, _ in fm.prose_lines(text, skip_frontmatter=True)], [4, 8])
+        self.assertEqual(fm.links("see [a](x.md#h) `[b](y.md)` ![i](p.png)"), ["x.md#h"])
+        self.assertEqual(fm.prose("see [a](x.md) `code`"), "see [a] `")
+
     def test_no_frontmatter_and_as_list(self):
         self.assertEqual(fm.parse("# just text"), {})
         self.assertEqual([fm.as_list(v) for v in (None, "x", ["x"])], [[], ["x"], ["x"]])

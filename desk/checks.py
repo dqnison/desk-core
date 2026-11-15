@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 
 from . import ext, home as homelib
-from .frontmatter import as_list
+from .frontmatter import as_list, prose, prose_lines
 from .when import Call, glob_match
 
 OK_MARK = "lint:place-ok"
@@ -45,15 +45,11 @@ def all_words(home):
 
 def place_hits(text, words):
     """[(line number, word)] in prose: outside fences, inline code and link targets."""
-    hits, fence = [], False
-    for n, line in enumerate((text or "").splitlines(), 1):
-        if line.lstrip().startswith("```"):
-            fence = not fence
-            continue
-        if fence or OK_MARK in line:
-            continue
-        prose = re.sub(r"`[^`]*`", "`", re.sub(r"\]\([^)]*\)", "]", line)).casefold()
-        hits += [(n, w) for w in words if w.casefold() in prose]
+    hits = []
+    for n, line in prose_lines(text):
+        if OK_MARK not in line:
+            seen = prose(line).casefold()
+            hits += [(n, w) for w in words if w.casefold() in seen]
     return hits
 
 

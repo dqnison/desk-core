@@ -168,9 +168,6 @@ def check_contexts(home, out):
                 f"more than one default context: {', '.join(defaults)}")
 
 
-_LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
-
-
 def slug(heading, collapse=True):
     """Anchor: lowercase, punctuation dropped, spaces → `-`. Obsidian collapses a run
     of spaces into one dash, GitHub does not (`a — b` → `a-b` / `a--b`); both count."""
@@ -194,14 +191,8 @@ def anchors(path):
 
 def check_links(home, out):
     for p in homelib.iter_markdown(home):
-        fence = False
-        for n, line in enumerate(p.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            if line.lstrip().startswith("```"):
-                fence = not fence
-                continue
-            if fence:
-                continue
-            for target in _LINK_RE.findall(re.sub(r"`[^`]*`", "", line)):
+        for n, line in frontmatter.prose_lines(p.read_text(encoding="utf-8", errors="replace")):
+            for target in frontmatter.links(line):
                 if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
                     continue      # http:, mailto:, …
                 file, _, anchor = target.partition("#")
