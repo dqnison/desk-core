@@ -4,6 +4,10 @@ from desk import frontmatter as fm
 
 
 class FrontmatterTest(unittest.TestCase):
+    def test_no_frontmatter_and_as_list(self):
+        self.assertEqual(fm.parse("# just text"), {})
+        self.assertEqual([fm.as_list(v) for v in (None, "x", ["x"])], [[], ["x"], ["x"]])
+
     def test_flat_keys_and_lists(self):
         text = "---\ntier: action\ntags: [a, 'b c']\nskip_in:\n  - desk\n  - personal\n---\nbody\n"
         self.assertEqual(fm.parse(text), {"tier": "action", "tags": ["a", "b c"],

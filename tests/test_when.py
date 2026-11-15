@@ -1,3 +1,4 @@
+import unittest
 from pathlib import Path
 
 from desk import home, when as wh
@@ -164,3 +165,53 @@ class FiredTest(HomeCase):
         self.assertEqual(wh.repos_touched(bash(f"cat {self.home}/contexts/acme/context.md"), s), set())
         self.assertEqual(wh.repos_touched(wh.Call(tool="Edit", input={"file_path": str(api / "x.py")}), s),
                          {"shop-api"})
+
+
+class WriteTargetsTest(unittest.TestCase):
+    """What a Bash command writes: redirects, tee, in-place edits, heredoc scripts."""
+
+    def test_redirect_tee_sed(self):
+        cmd = ("cat >> ~/desk/a.md <<'EOF'\nx\nEOF\necho y > /tmp/b.txt; echo z | tee /tmp/c.txt; "
+               "sed -i '' 's/a/b/' /tmp/d.md")
+        targets = wh.write_targets(cmd)
+        self.assertIn(str(Path("~/desk/a.md").expanduser()), targets)
+        for p in ("/tmp/b.txt", "/tmp/c.txt", "/tmp/d.md"):
+            self.assertIn(p, targets)
+
+    def test_python_heredoc_write_and_read(self):
+        write = ('~/.venv/bin/python - <<\'PY\'\nimport io\np = "/Users/x/desk/contexts/a/db.md"\n'
+                 's = io.open(p, encoding="utf-8").read()\nio.open(p, "w", encoding="utf-8").write(s)\nPY')
+        self.assertIn("/Users/x/desk/contexts/a/db.md", wh.write_targets(write))
+        read = 'python3 - <<\'PY\'\nprint(open("/Users/x/desk/a.md").read())\nPY'
+        self.assertEqual(wh.write_targets(read), [])
+
+    def test_relative_paths_after_cd_and_vars(self):
+        cmd = "W=/Users/x/app-worktrees/t-1; cd $W && cat > tests/T.php <<'PHP'\n<?php\nPHP"
+        self.assertIn("/Users/x/app-worktrees/t-1/tests/T.php", wh.write_targets(cmd, "/elsewhere"))
+        cmd2 = "F=~/repo/.env.local\ncp -p \"$F\" \"$F.bak\"; perl -pi -e 's/a/b/' \"$F\""
+        targets = wh.write_targets(cmd2, "/elsewhere")
+        self.assertIn(str(Path("~/repo/.env.local").expanduser()), targets)
+        self.assertIn(str(Path("~/repo/.env.local.bak").expanduser()), targets)
+
+    def test_python_relative_open_uses_cwd(self):
+        cmd = "cd /Users/x/app && python3 - <<'PY'\np='models/A.php'\ns=open(p).read()\nopen(p,'w').write(s)\nPY"
+        self.assertIn("/Users/x/app/models/A.php", wh.write_targets(cmd, "/elsewhere"))
+
+    def test_git_checkout_restores_files(self):
+        targets = wh.write_targets("cd /Users/x/repo; git checkout HEAD~1 -- a.php b.php && ls", "/elsewhere")
+        self.assertIn("/Users/x/repo/a.php", targets)
+        self.assertIn("/Users/x/repo/b.php", targets)
+
+    def test_not_writes(self):
+        self.assertEqual(wh.write_targets("ls /x 2>/dev/null; cmd 2>&1 | head", "/tmp"), [])
+        self.assertEqual(wh.write_targets("cat ~/desk/a.md | grep x"), [])
+
+    def test_var_with_backslashes_and_dotfile(self):
+        self.assertIn("/tmp/out.txt", wh.write_targets("P='C:\\\\x\\\\y'; echo $P > /tmp/out.txt", "/tmp"))
+        self.assertIn("/Users/x/desk/.gitignore",
+                      wh.write_targets("cd /Users/x/desk && sed -i '' '/^work/d' .gitignore", "/tmp"))
+
+    def test_call_targets_per_tool(self):
+        self.assertEqual(wh.Call(tool="Edit", input={"file_path": "/x/y.md"}).targets, ["/x/y.md"])
+        self.assertEqual(wh.Call(tool="Bash", input={"command": "echo 1 > /x/y.md"}).targets, ["/x/y.md"])
+        self.assertEqual(wh.Call(tool="Read", input={"file_path": "/x/y.md"}).targets, [])
