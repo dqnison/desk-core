@@ -86,6 +86,32 @@ def emit(event, ev):
     return out
 
 
+IN_WORK = []
+
+
+def in_work(fn):
+    """`fn(branch, session) -> True | False | None` — is the work on a branch alive
+    (a tracker status of its task, say). Used by checkout busy and worktree verdicts."""
+    IN_WORK.append(fn)
+    return fn
+
+
+def in_work_of(branch, session):
+    """True when any resolver says so; False when one says no and none says yes;
+    None — nobody knows."""
+    seen = None
+    for fn in IN_WORK:
+        try:
+            r = fn(branch, session)
+        except Exception:
+            r = None
+        if r is True:
+            return True
+        if r is False:
+            seen = False
+    return seen
+
+
 def live(id, label=""):
     def wrap(fn):
         LIVE[id] = Check(id, label or id, fn, source=_source(fn))
@@ -116,7 +142,7 @@ def _source(fn):
 def load(home=None):
     """Import the core checks and `<home>/ext/*.py` once per process; errors —
     [(file, message)] (a broken extension must not break the hook)."""
-    from . import checks, journal, threads  # registers the universal checks and handlers
+    from . import checkout, checks, journal, threads  # registers the universal checks and handlers
     home = Path(home or desk_home())
     key = str(home)
     if key in _loaded:

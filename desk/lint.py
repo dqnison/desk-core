@@ -139,7 +139,8 @@ def _check_config(home, f, out, root):
     if not isinstance(raw, dict):
         out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
-    allowed = ("triggers", "portable", "entry", "header", "require_tier", "interfaces", "journal", "meta_goal") if root else ("triggers",)
+    allowed = (("triggers", "portable", "entry", "header", "require_tier", "interfaces", "journal",
+                "meta_goal", "worktree") if root else ("triggers", "branches"))
     unknown = [k for k in raw if k not in allowed]
     if unknown:
         out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")

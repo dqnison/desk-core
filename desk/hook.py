@@ -8,6 +8,9 @@
     PostToolUse       files read in full count as delivered; for Bash — what the command
                       really changed (`git status` before/after): `paths:` rules and guard
                       remarks on actual changes
+    SessionEnd        extension handlers (the session journal)
+    WorktreeCreate    the session's worktree from the place's integration branch
+                      (desk.worktree); runs even with the hooks quiet — the harness waits
 
 The command is never rewritten. No model calls.
 """
@@ -35,13 +38,16 @@ def main(argv=None, stdin=None):
     ap.add_argument("--slot", type=int, default=1)
     ap.add_argument("--slots", type=int, default=1)
     a = ap.parse_args(argv)
-    if homelib.quiet():
-        return 0
     try:
         data = json.load(stdin or sys.stdin)
     except ValueError:
         return 0
     if not isinstance(data, dict):
+        return 0
+    if data.get("hook_event_name") == "WorktreeCreate":     # the harness waits for a path, even quiet
+        from . import worktree
+        return worktree.run(data)
+    if homelib.quiet():
         return 0
     try:
         out = handle(data, a.slot, a.slots)

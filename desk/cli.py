@@ -119,6 +119,7 @@ def hooks_block():
         "PreToolUse": [{"matcher": "*", "hooks": one}],
         "PostToolUse": [{"matcher": "*", "hooks": one}],
         "SessionEnd": [{"hooks": one}],
+        "WorktreeCreate": [{"hooks": [{"type": "command", "command": entry, "timeout": 60}]}],
     }}
 
 
