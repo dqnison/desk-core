@@ -81,6 +81,37 @@ def reach(rules, records, home):
     return {k: tuple(v) for k, v in out.items()}
 
 
+def trigger_reach(rules, records, home):
+    """{named trigger: (fired sessions, reached sessions)}: of the sessions where a
+    trigger of desk.yml fired, in how many a rule naming it reached the model before
+    the next call. Only rules in the session's scope count; triggers that never
+    fired are absent."""
+    sessions = Sessions(home)
+    out = defaultdict(lambda: [0, 0])
+    candidates = [r for r in rules if r.tier in ("session", "action") and r.when and not r.error]
+    for rec in records:
+        s = sessions.of(rec["cwd"])
+        if s.in_home:
+            continue
+        named = wh.named_triggers(home, s.context_name)
+        events, first = rec["events"], {}
+        for i, ev in enumerate(events):
+            if ev["kind"] not in ("tool_use", "user_text"):
+                continue
+            call = _call(ev, rec["cwd"])
+            for n, entries in named.items():
+                if n not in first and any(wh.match_entry(e, call, home) for e in entries):
+                    first[n] = (i, call)
+        for n, (i, call) in first.items():
+            repos = wh.repos_touched(call, s) if not call.is_prompt else {s.repo}
+            files = [r for r in candidates if n in r.when and homelib.in_scope(r, s, repos)]
+            upto = next((j for j in range(i + 1, len(events)) if events[j]["kind"] == "tool_use"),
+                        len(events))
+            out[n][0] += 1
+            out[n][1] += any(_delivered(r, events, upto) for r in files)
+    return {k: tuple(v) for k, v in out.items()}
+
+
 def guard_checks(rules):
     """Compliance checks derived from data guards: [(id, label, since, fn)]."""
     out = []

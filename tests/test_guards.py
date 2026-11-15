@@ -25,6 +25,28 @@ def bash(cmd, cwd="/w"):
     return wh.Call(tool="Bash", input={"command": cmd}, cwd=cwd)
 
 
+class InputScopeTest(HomeCase):
+    files = {"process/mr.md": """---
+tier: link
+guard:
+  - deny: 'Generated with'
+    in: input
+    tool: 'mcp__*merge_request*'
+    why: no attribution in a merge request
+---
+"""}
+
+    def test_input_scope_only_for_named_tools(self):
+        s = home.session_from({"cwd": "/", "session_id": "s1"}, self.home)
+        rules = home.load_rules(self.home)
+        mr = lambda tool, text: wh.Call(tool=tool, input={"description": text})
+        got = guards.evaluate(rules, mr("mcp__forge__create_merge_request", "x\n\nGenerated with Bot"), s)
+        self.assertEqual([(d.kind, d.id) for d in got], [("deny", "process/mr.md#1")])
+        self.assertEqual(guards.evaluate(rules, mr("mcp__forge__create_merge_request", "plain"), s), [])
+        self.assertEqual(guards.evaluate(rules, mr("mcp__forge__create_issue", "Generated with Bot"), s), [])
+        self.assertFalse(guards.lint_guard({"deny": "x", "in": "input", "tool": "mcp__*", "why": "y"}))
+
+
 class GuardDataTest(HomeCase):
     files = {
         "process/git.md": GIT_RULE,

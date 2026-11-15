@@ -171,6 +171,28 @@ class MeasureTest(HomeCase):
         self.assertEqual(got["place-words"][1:3], (1, 2))     # now.md clean, new.md leaks
 
 
+class TriggerReachTest(MeasureTest):
+    files = {**MeasureTest.files,
+             "desk.yml": "triggers:\n  commit:\n    - git: write\n  deploy:\n    - command: '\\bkubectl\\b'\n",
+             "process/c.md": "---\ntier: action\nwhen: [commit]\n---\nc body\n",
+             "contexts/other/context.md": "---\nmatch: {remote: other.example.com}\n---\n",
+             "contexts/other/o.md": "---\ntier: action\nwhen: [commit]\n---\no body\n"}
+    test_iter_session = test_reach = test_compliance = None    # MeasureTest's own, run there
+
+    def test_trigger_reach(self):
+        from desk import home
+        self.transcript("s3", [
+            self.tool("t1", "Bash", {"command": "git commit -m 'fix(no-ref): x'"}),
+            self.hook("[desk] Сработало: …\n--- process/c.md ---\nc body"),
+        ])
+        self.transcript("s4", [     # a rule of another place reached the model: not this session's
+            self.tool("t1", "Bash", {"command": "git commit -m 'fix(no-ref): y'"}),
+            self.hook("[desk] Сработало: …\n--- contexts/other/o.md ---\no body"),
+        ])
+        got = measure.trigger_reach(home.load_rules(self.home), self.records(), self.home)
+        self.assertEqual(got, {"commit": (3, 1)})     # s1 without c.md, s3 delivered it, s4 out of scope
+
+
 class EntryScriptsTest(HomeCase):
     """bin/desk-hook and bin/desk run as the plugin runs them: a fresh process."""
 

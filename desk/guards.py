@@ -16,9 +16,10 @@ of its `when:`):
 Decisions: `deny`, `ask`, `deny-unless`, `ask-unless`. Scopes: `command` (Bash
 command), `commit-message` (each `git commit` segment with its heredoc),
 `commit-subject` (first line of each `-m` message that can be read), `content`
-(text the call writes), `paths` (files the call writes). Optional keys: `paths`
-(globs: the guard applies only to calls writing such files), `id`, `since`
-(date the compliance measure starts from).
+(text the call writes), `paths` (files the call writes), `input` (the tool input
+as JSON — MCP tools). Optional keys: `tool` (globs: the guard applies only to these
+tools), `paths` (globs: only to calls writing such files), `id`, `since` (date the
+compliance measure starts from).
 
 `ask` is asked once per session per guard; `deny` every time. DESK_NO_DENY=1 turns
 denies off (gates included), asks stay. Extensions add live checks (desk.ext).
@@ -27,6 +28,8 @@ Compliance of a data guard is derived from the same description: for deny-kinds,
 each call in scope is a case, ok when not violating; for ask-kinds, each matching
 call is a case, ok when the rule was in context before it (delivered or read).
 """
+import fnmatch
+import json
 import os
 import re
 import subprocess
@@ -34,11 +37,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import ext, home as homelib, messages as msg
+from .frontmatter import as_list
 from .when import paths_match
 
-SCOPES = ("command", "commit-message", "commit-subject", "content", "paths")
+SCOPES = ("command", "commit-message", "commit-subject", "content", "paths", "input")
 DECISIONS = ("deny", "ask", "deny-unless", "ask-unless")
-KEYS = DECISIONS + ("in", "why", "paths", "id", "since")
+KEYS = DECISIONS + ("in", "why", "tool", "paths", "id", "since")
 NO_DENY_ENV = "DESK_NO_DENY"
 
 
@@ -97,6 +101,8 @@ def scope_texts(scope, call):
     if scope == "content":
         t = call.new_text()
         return [t] if t else []
+    if scope == "input":
+        return [json.dumps(call.input, ensure_ascii=False)] if call.tool and call.input else []
     return []
 
 
@@ -112,6 +118,8 @@ def guard_id(rule, i, g):
 
 def applies(g, call, home, rule):
     """The guard's scope has something to look at in this call."""
+    if "tool" in g and not any(fnmatch.fnmatchcase(call.tool or "", str(t)) for t in as_list(g["tool"])):
+        return False
     if "paths" in g and g.get("in") != "paths":
         if not any(paths_match(g["paths"], p, home, rule.repo) for p in call.targets):
             return False
