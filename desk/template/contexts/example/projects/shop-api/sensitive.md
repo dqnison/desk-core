@@ -5,12 +5,13 @@ when:
 guard:
   - ask: 'billing/'
     in: paths
-    why: billing/ ходит в платный API — до правки прочитать правило ниже, тест на «когда вызов НЕ происходит»
+    id: paid-billing
+    why: billing/ calls a paid API — read the rule below first; test the case «the call does NOT happen»
 ---
 
-# shop-api: платный код
+# shop-api: paid code
 
-`billing/` вызывает платный внешний API: ошибка стоит денег.
+`billing/` calls a paid external API: a mistake costs money.
 
-- Тест на случай «когда вызов НЕ происходит» обязателен.
-- Влияние на число платных вызовов — строкой в описании MR.
+- A test for «the call does NOT happen» is required.
+- The effect on the number of paid calls — one line in the MR description.

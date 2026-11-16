@@ -3,8 +3,8 @@ tier: session
 skip_in: [desk]
 ---
 
-# Цикл задачи
+# Task loop
 
-1. Разобрать постановку и сверить её с кодом и данными.
-2. Вопрос — один, меняющий работу, с вариантами и рекомендацией.
-3. План → ветка → правка с тестом → проверка → отчёт: результат и ссылки.
+1. Read the task and check it against the code and the data.
+2. One question that changes the work, with options and a recommendation.
+3. Plan → branch → change with a test → check → report: the result and the links.

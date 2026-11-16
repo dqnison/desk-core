@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import sys
 
 from desk import ext, guards, home, when as wh
@@ -23,6 +24,27 @@ git body
 
 def bash(cmd, cwd="/w"):
     return wh.Call(tool="Bash", input={"command": cmd}, cwd=cwd)
+
+
+class SafetyPackTest(HomeCase):
+    files = {"process/safety.md": (Path(__file__).resolve().parents[1] / "desk/template/process/safety.md").read_text()}
+
+    def kinds(self, call):
+        s = home.session_from({"cwd": "/w", "session_id": "s1"}, self.home)
+        return [(d.kind, d.id) for d in guards.evaluate(home.load_rules(self.home), call, s)]
+
+    def test_rm_rf_on_root_home_or_star_denied_specific_folder_passes(self):
+        for cmd in ("rm -rf /", "rm -rf ~", "sudo rm -fr /*", "cd x && rm -rf $HOME", "rm -rf *"):
+            self.assertEqual(self.kinds(bash(cmd)), [("deny", "no-rm-rf-root")], cmd)
+        for cmd in ("rm -rf ./build", "rm -rf /tmp/x", "rm -rf node_modules", "echo 'rm -rf /' > notes.md"):
+            self.assertEqual(self.kinds(bash(cmd)), [], cmd)
+
+    def test_writing_secrets_asks(self):
+        app = git_checkout(self.tmp / "app")
+        w = lambda rel: wh.Call(tool="Write", input={"file_path": str(app / rel), "content": "X=1"})
+        self.assertEqual(self.kinds(w(".env")), [("ask", "secrets-write")])
+        self.assertEqual(self.kinds(w("config/.env.local")), [("ask", "secrets-write")])
+        self.assertEqual(self.kinds(w("settings.py")), [])
 
 
 class InputScopeTest(HomeCase):

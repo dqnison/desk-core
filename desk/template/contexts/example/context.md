@@ -4,12 +4,12 @@ match:
   remote: ['git.example.com']
 ---
 
-# Контекст: example
+# Place: example
 
-Активен, когда `git remote -v` сессии ведёт на `git.example.com` (`match:` выше).
-Пример места работы: компания Acme, трекер с ключами вида `DEMO-123`.
+Active when the session's `git remote -v` points at `git.example.com` (`match:` above).
+An example workplace: the company Acme, a tracker with keys like `DEMO-123`.
 
-- Трекер — [tracker.md](tracker.md), приезжает по вызову CLI трекера.
-- Репозитории: `shop-api` — [projects/shop-api/](projects/shop-api/local.md), платный код —
+- Tracker — [tracker.md](tracker.md), arrives with a call of the tracker CLI.
+- Repositories: `shop-api` — [projects/shop-api/](projects/shop-api/local.md), paid code —
   [sensitive.md](projects/shop-api/sensitive.md).
-- Имена места, которых не должно быть в `process/`, — `place-words.txt`.
+- Names of the place that must not appear in `process/` — `place-words.txt`.

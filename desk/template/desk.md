@@ -4,29 +4,28 @@ tier: import
 
 # Desk
 
-Мои правила работы с ассистентом. Этот файл — вход: он `@`-импортируется
-в каждую сессию (ярус `import`), поэтому короткий.
+How I work with the assistant. This file is the entry: `@`-imported into every
+session (tier `import`), so it stays short.
 
-## Принципы
+## Principles
 
-1. Скоуп фиксирован договорённостями: смежные правки — только мелкие.
-2. Постановка — гипотеза: ориентиры сверяются с кодом до работы.
-3. Без AI-атрибуции в коммитах и описаниях изменений → [git.md](process/git.md).
+1. The scope is what we agreed on: side edits only when small.
+2. A task statement is a hypothesis: check it against the code before the work.
 
-## Ярусы
+## Tiers
 
-Каждое правило объявляет во фронтматтере, когда оно должно быть в контексте:
+Each rule says in its frontmatter when it must be in context:
 
-- `import` — в каждой сессии целиком (этот файл);
-- `session` — к первому действию сессии (хаб активного контекста, цикл задачи);
-- `action` — не позже действия из своего `when:`;
-- `link` — справочник по ссылке, хук его не подаёт.
+- `import` — in every session, whole (this file);
+- `session` — before the first action of a session (the place's hub, the task loop);
+- `action` — no later than the action its `when:` names;
+- `link` — reference by link; the hook does not deliver it.
 
-## Где что
+## Map
 
-- `process/` — переносимые правила, без имён мест работы.
-- `contexts/<место>/` — привязанное к месту: хостинг, трекер, репозитории;
-  `context.md` объявляет `match:`, когда место активно.
-- `contexts/<место>/projects/<репо>/` — факты одного репозитория.
-- `ext/` — проверки кодом, которые данными не выразить.
-- [now.md](now.md) — открытые нити.
+- `process/` — portable rules, no names of a workplace.
+- `contexts/<place>/` — what belongs to a place: hosting, tracker, repositories;
+  `context.md` says by `match:` when the place is active.
+- `contexts/<place>/projects/<repo>/` — facts of one repository.
+- `ext/` — checks in code where data cannot express them.
+- [now.md](now.md) — open threads.

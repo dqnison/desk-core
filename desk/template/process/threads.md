@@ -4,13 +4,13 @@ when:
   - paths: ['now.md', '**/now.md', '**/threads/**']
 ---
 
-# Нити
+# Threads
 
-Нить — то, что держится дольше сессии: намерение или незаконченный разбор.
-Файл `threads/<слаг>.md` (про сам desk — в корне, про место — в `contexts/<место>/`)
-с `status: open` во фронтматтере и разделом `## Дальше` — следующим действием.
-В `now.md` рядом с папкой `threads/` — блок нити: заголовок, строка состояния
-и ссылка. `now.md` грузится на старте, поэтому не крупнее 4 КБ.
+A thread lasts longer than a session: an intention or an unfinished inquiry. A file
+`threads/<slug>.md` (about the desk itself at the root, about a place under
+`contexts/<place>/`) with `status: open` in its frontmatter and a `## Дальше`
+section — the next step. The `now.md` next to the `threads/` folder lists it: a
+title, one line of state and a link. `now.md` loads at session start: ≤ 4 KB.
 
-Закрытая нить уходит из `now.md`, получает `status: closed`, `closed: <дата>`
-и строку «**Закрыта <дата>.** <решение>». Всё это проверяет `desk lint`.
+A closed thread leaves `now.md` and gets `status: closed`, `closed: <date>` and a line
+«**Закрыта <date>.** <decision>». With `threads: true` in desk.yml, `desk lint` checks it.

@@ -1,5 +1,5 @@
-# Открытые нити
+# Open threads
 
-Что держу дольше одной сессии; правила — [threads.md](process/threads.md).
+What lasts longer than one session; the rules — [threads.md](process/threads.md).
 
-Пока пусто.
+Nothing yet.

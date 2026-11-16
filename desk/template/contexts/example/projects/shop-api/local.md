@@ -2,10 +2,10 @@
 tier: session
 ---
 
-# shop-api: локально
+# shop-api: local
 
-Едет к первому действию в сессии этого репозитория, а во второй сессии — с первым
-вызовом, который его касается.
+Arrives before the first action of a session in this repository, and in another
+session with the first call that touches it.
 
-- Стек: `make up`; тесты: `make test`.
-- Платный код — [sensitive.md](sensitive.md).
+- Stack: `make up`; tests: `make test`.
+- Paid code — [sensitive.md](sensitive.md).

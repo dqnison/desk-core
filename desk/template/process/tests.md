@@ -3,9 +3,9 @@ tier: action
 when: [tests]
 ---
 
-# Тесты
+# Tests
 
-- Падения чистой ветки снимаются до правки — иначе своё не отличить от чужого.
-- Мутационная проверка: сломать проверяемый код — тест краснеет; мутация
-  откатывается обратной правкой.
-- Правка без логики (тексты, подписи) идёт без нового теста — отклонение строкой в отчёте.
+- Record what fails on a clean branch before the change — or yours is not told from theirs.
+- Mutation check: break the code under test, the test turns red; undo the mutation
+  with a reverse edit.
+- A change without logic (texts, labels) needs no new test — say so in the report.

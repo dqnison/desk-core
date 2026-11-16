@@ -2,27 +2,26 @@
 tier: action
 when:
   - git: write
-  - prompt: '(?<![а-яё])коммит|\bcommit\b'
+  - prompt: '\bcommit\b|(?<![а-яё])коммит'
 guard:
   - deny: 'Co-Authored-By|Generated with|🤖'
     in: commit-message
-    why: в коммитах нет атрибуции инструментов (Co-Authored-By, «Generated with», 🤖) — убрать футер и повторить
-  - deny-unless: '^(Merge |Revert |fixup! |squash! |amend! )|^(?=.{1,72}$)(feat|fix|chore|refactor|docs|test|ci|perf|style|build)\(([A-Z][A-Z0-9]*-\d+|no-ref)\)!?: [a-z0-9`].*[^.\s]$'
+    id: commit-no-attribution
+    why: no tool attribution in commits (Co-Authored-By, «Generated with», 🤖) — drop the footer and retry
+  - deny-unless: '^(Merge |Revert |fixup! |squash! |amend! )|^(?=.{1,72}$)(feat|fix|chore|refactor|docs|test|ci|perf|style|build)(\([^)\s]+\))?!?: [a-z0-9`].*[^.\s]$'
     in: commit-subject
-    why: subject коммита — `<type>(<TICKET>|no-ref): <description>`, английский, lowercase, без точки, до 72 символов
+    id: commit-format
+    why: commit subject — Conventional Commits `<type>(<scope>): <description>`, lowercase, no trailing dot, ≤ 72 chars
 ---
 
 # Git
 
-## Ветки
+An example policy — edit it to yours; the guards above are what the hook enforces.
 
-`<category>/<ticket-lowercase>/<short-kebab-description>`; без тикета — `no-ref`.
-Категории: `feature`, `bugfix`, `refactor`, `chore`, `hotfix`, `test`.
+## Commits
 
-## Коммиты
-
-`<type>(<TICKET>): <description>` — например `fix(DEMO-123): handle empty cart`.
+`<type>(<scope>): <description>` — e.g. `fix(cart): handle an empty cart`.
 
 - `type`: feat | fix | chore | refactor | docs | test | ci | perf | style | build;
-- описание: английский, lowercase, императив, без точки, subject ≤ 72 символов;
-- **запрещены** футеры атрибуции инструментов — хук отклоняет такой коммит.
+- description: imperative, lowercase, no trailing dot, subject ≤ 72 characters;
+- no tool attribution footers — the hook denies such a commit.

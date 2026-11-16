@@ -43,7 +43,7 @@ class TemplateTest(HomeCase):
         os.environ["DESK_HOME"] = str(ROOT / "desk/template")
         code, out = run_cli("why", 'git commit -m "Fixed stuff."', "--cwd", str(self.tmp))
         self.assertIn("process/git.md [action] ← git commit", out)
-        self.assertIn("deny process/git.md#2", out)
+        self.assertIn("deny commit-format", out)
         self.assertIn("Итог хука (первый вызов в сессии): deny", out)
         code, out = run_cli("why", "git push --force origin main", "--cwd", str(self.tmp))
         self.assertIn("deny no-force-push", out)
@@ -56,7 +56,7 @@ class TemplateTest(HomeCase):
         api = git_checkout(self.tmp / "shop-api", "git@git.example.com:acme/shop-api.git")
         code, out = run_cli("why", "billing/pay.py", "--tool", "Edit", "--content", "x", "--cwd", str(api))
         self.assertIn("Контекст: example", out)
-        self.assertIn("ask  contexts/example/projects/shop-api/sensitive.md#1", out)
+        self.assertIn("ask  paid-billing", out)
         self.assertIn("Итог хука (первый вызов в сессии): ask", out)
 
 
@@ -284,8 +284,8 @@ class MeasureTest(HomeCase):
     def test_compliance(self):
         from desk import home
         got = measure.compliance(home.load_rules(self.home), self.records(), self.home)
-        self.assertEqual(got["process/git.md#1"][1:3], (2, 2))     # no attribution in either commit
-        self.assertEqual(got["process/git.md#2"][1:3], (1, 2))     # one bad subject
+        self.assertEqual(got["commit-no-attribution"][1:3], (2, 2))     # no attribution in either commit
+        self.assertEqual(got["commit-format"][1:3], (1, 2))     # one bad subject
         self.assertEqual(got["place-words"][1:3], (1, 2))     # now.md clean, new.md leaks
 
 

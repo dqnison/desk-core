@@ -4,7 +4,6 @@ match:
   default: true
 ---
 
-# Контекст: личный
+# Place: personal
 
-Активен, когда другой контекст не подошёл (`match: default`). Тикетов нет — в коммитах
-`no-ref`; трекера и MR нет.
+Active when no other place matched (`match: default`). No tickets, tracker or MRs.

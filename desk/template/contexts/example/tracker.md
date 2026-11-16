@@ -6,7 +6,7 @@ when:
   - tool: 'mcp__tracker__*'
 ---
 
-# Трекер Acme
+# Acme tracker
 
-- Ключ задачи — `DEMO-123`; ветка несёт его в нижнем регистре.
-- Комментарий с отчётом — после MR, со ссылками на каждый.
+- A task key is `DEMO-123`; the branch carries it in lowercase.
+- The report comment goes after the MR, with a link to each.
