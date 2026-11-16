@@ -148,6 +148,15 @@ class PortTest(HomeCase):
         self.assertIn('paths: ["**/*.sql"]', (out / ".claude/rules/sql.md").read_text())
 
 
+class SessionBudgetTest(HomeCase):
+    files = {"process/loop.md": "---\ntier: session\n---\n" + "## a\n" + "x" * 13000 + "\n",
+             "process/small.md": "---\ntier: session\n---\nshort\n"}
+
+    def test_session_rule_over_a_portion_is_reported(self):
+        got = [(rel, c) for rel, _, c, _ in lint.run(self.home) if c == "budget"]
+        self.assertEqual(got, [("process/loop.md", "budget")])
+
+
 class LintTest(HomeCase):
     files = {
         "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"

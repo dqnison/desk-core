@@ -5,7 +5,7 @@
                 matcher; action without `when:` is never delivered; link with
                 `when:` contradicts itself
   guard       — exactly one decision, known scope, regex compiles, `why` present
-  budget      — an action rule fits one portion (deliver.BUDGET); an import rule
+  budget      — an action or session rule fits one portion (deliver.BUDGET); an import rule
                 is at most IMPORT_MAX bytes (it costs every session)
   contexts    — at most one `match.default`; `match` has known keys
   hub         — a context's context.md names every file of the context (threads aside)
@@ -80,9 +80,10 @@ def check_rule(rule, home, out, brought=frozenset()):
         for p in guards.lint_guard(g):
             out.add(home, rule.path, _fm_line(text, "guard"), "guard", f"entry {i}: {p}")
     size = len(rule.body().encode("utf-8"))
-    if rule.tier == "action" and size > dl.BUDGET:
+    if rule.tier in ("action", "session") and size > dl.BUDGET:
         out.add(home, rule.path, None, "budget",
-                f"action body {dl.kb(size)} > portion {dl.kb(dl.BUDGET)}: it arrives in parts")
+                f"{rule.tier} body {dl.kb(size)} > portion {dl.kb(dl.BUDGET)}: it arrives in parts"
+                + (" across start slots, the rest may not fit" if rule.tier == "session" else ""))
     if rule.tier == "import" and len(text.encode("utf-8")) > IMPORT_MAX:
         out.add(home, rule.path, None, "budget", f"import rule > {dl.kb(IMPORT_MAX)}: it costs every session")
 
