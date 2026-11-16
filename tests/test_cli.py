@@ -348,6 +348,64 @@ class TriggerReachTest(MeasureTest):
         self.assertEqual(got, {"commit": (3, 1)})     # s1 without c.md, s3 delivered it, s4 out of scope
 
 
+class RuleStartTest(MeasureTest):
+    """A session before a rule existed is not held against it: s1 (11-10) predates
+    every start below, s2 (11-11, the prompt «сделай коммит») does not."""
+    files = {**MeasureTest.files,
+             "desk.yml": "triggers:\n  commit:\n    - git: write\n    - prompt: 'коммит'\n",
+             "process/c.md": "---\ntier: action\nwhen: [commit]\n---\nc body\n"}
+    test_iter_session = test_reach = test_compliance = None
+
+    def got(self):
+        from desk import home
+        rules = home.load_rules(self.home)
+        return (measure.reach(rules, self.records(), self.home),
+                measure.trigger_reach(rules, self.records(), self.home))
+
+    def test_without_a_start_every_session_counts(self):
+        reach, trig = self.got()
+        self.assertEqual(reach["process/c.md"], (2, 0))
+        self.assertEqual(trig["commit"], (2, 0))
+
+    def test_rule_since(self):
+        self.write({"process/c.md": "---\ntier: action\nwhen: [commit]\nsince: 2026-11-11\n---\nc body\n"})
+        reach, trig = self.got()
+        self.assertEqual(reach["process/c.md"], (1, 0))
+        self.assertEqual(reach["process/git.md"], (2, 1))      # other rules keep their sessions
+        self.assertEqual(trig["commit"], (1, 0))
+
+    def test_file_added_to_git(self):
+        import subprocess
+        from desk import home
+        git_checkout(self.home)
+        env = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+               "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+        for path, when in (("process/git.md", "2026-11-01T00:00:00Z"), ("process/c.md", "2026-11-10T12:00:00Z")):
+            subprocess.run(["git", "-C", str(self.home), "add", path], check=True)
+            subprocess.run(["git", "-C", str(self.home), "commit", "-qm", "x"], check=True,
+                           env={**env, "GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when})
+        starts = measure.rule_starts(home.load_rules(self.home), self.home)
+        self.assertEqual(starts["process/c.md"], "2026-11-10T12:00:00Z")
+        reach, _ = self.got()
+        self.assertEqual(reach["process/c.md"], (1, 0))        # s1 at 10:00 came before the commit
+        self.assertEqual(reach["process/git.md"], (2, 1))
+
+    def test_measure_since_cuts_everything(self):
+        from desk import home
+        self.write({"desk.yml": "triggers:\n  commit:\n    - git: write\n    - prompt: 'коммит'\n"
+                                "measure:\n  since: 2026-11-11\n"})
+        reach, trig = self.got()
+        self.assertEqual(reach["process/git.md"], (1, 0))
+        self.assertEqual(trig["commit"], (1, 0))
+        got = measure.compliance(home.load_rules(self.home), self.records(), self.home)
+        self.assertEqual(got["commit-format"][1:3], (0, 0))     # both commits are in s1
+        self.assertIn("замер с 2026-11-11", measure.report(self.home, self.tmp / "projects", None))
+        self.assertEqual(lint.run(self.home), [])
+        self.write({"desk.yml": "measure: 2026-11-11\n"})
+        self.assertIn("`measure` is a mapping with `since: YYYY-MM-DD`",
+                      [m for _, _, _, m in lint.run(self.home)])
+
+
 class RepeatsTest(HomeCase):
     """An extra delivery is the same label from another hook event in one stretch."""
     files = {"process/git.md": "---\ntier: action\n---\n" + "x" * 100,

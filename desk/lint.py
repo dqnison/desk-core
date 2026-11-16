@@ -142,10 +142,15 @@ def _check_config(home, f, out, root):
         out.add(home, f, None, "config", "desk.yml is not a mapping")
         return
     allowed = (("triggers", "portable", "entry", "header", "require_tier", "interfaces", "journal",
-                "meta_goal", "worktree", "threads", "sweep", "checkout") if root else ("triggers", "branches"))
+                "meta_goal", "worktree", "threads", "sweep", "checkout", "measure") if root
+               else ("triggers", "branches"))
     unknown = [k for k in raw if k not in allowed]
     if unknown:
         out.add(home, f, None, "config", f"unknown keys: {', '.join(unknown)}")
+    m = raw.get("measure")
+    if m is not None and not (isinstance(m, dict) and set(m) <= {"since"}
+                              and re.match(r"\d{4}-\d{2}-\d{2}", str(m.get("since", "")))):
+        out.add(home, f, None, "config", "`measure` is a mapping with `since: YYYY-MM-DD`")
     triggers = raw.get("triggers") or {}
     if not isinstance(triggers, dict):
         out.add(home, f, None, "config", "`triggers` is a mapping name → entries")

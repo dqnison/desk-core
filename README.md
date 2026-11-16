@@ -329,7 +329,7 @@ goes into a package (`ext/mylib/`): only `ext/*.py` load as extensions, and `ext
 | --- | --- |
 | `desk why '<command>'` | dry run of the hooks on one call; `--exit-code`: 2 on deny, 1 on ask |
 | `desk lint` | checks `DESK_HOME`: frontmatter, `when`/`guard`/`also`, `desk.yml`, size, links, contexts, place names; with `entry` — the `@`-imports |
-| `desk measure [--days 28]` | from transcripts in `~/.claude/projects`: weight per tier, in how many sessions a fired rule reached the model, compliance of each guard |
+| `desk measure [--days 28]` | from transcripts in `~/.claude/projects`: weight per tier, in how many sessions a fired rule reached the model, compliance of each guard. A rule counts from its start — its `since:` or the day its file was added to git; `measure: {since: 2026-11-13}` in `desk.yml` cuts off every earlier session (the day you moved to the core, say) |
 | `desk init [dir]` | the default desk and the wiring steps; `--hooks` prints the `settings.json` block, `--worktree` adds `WorktreeCreate` |
 | `desk doctor` | Python, `DESK_HOME`, rules (and which are `enabled: false`), context here, extensions, hooks wired |
 | `desk import <file>` | CLAUDE.md / AGENTS.md split by `##` into `process/*.md`, tier `import` |

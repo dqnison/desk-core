@@ -10,15 +10,61 @@ repeats     — extra deliveries: a file given again in one stretch of a session
 
 Sessions inside DESK_HOME are left out of reach (rules are edited there, not
 applied) but not out of compliance.
+
+A session is not held against a rule that did not exist yet: reach counts a rule
+from its start (`rule_starts`), and `measure: {since: <date>}` in desk.yml cuts
+off everything earlier — the day the delivery engine itself changed.
 """
 import datetime
 import os
 import re
+import subprocess
 from collections import defaultdict
 from pathlib import Path
 
 from . import deliver as dl, ext, guards, home as homelib, when as wh
 from .transcripts import iter_session, transcripts
+
+
+def since_floor(home):
+    """`measure: {since: <date>}` of desk.yml — no session before it is measured."""
+    m = homelib.config(home).get("measure")
+    return str(m["since"]) if isinstance(m, dict) and m.get("since") else None
+
+
+def _added(home):
+    """{rel path: UTC ISO time the file was added to git}; the latest add wins (a file
+    deleted and added again starts anew). A rename keeps the old date: rename detection
+    turns it into R, not A. Not a git repository — {}."""
+    try:
+        r = subprocess.run(["git", "-C", str(home), "log", "--diff-filter=A", "--relative",
+                            "--format=%x00%ct", "--name-only"],
+                           capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out = {}
+    for chunk in r.stdout.split("\0") if r.returncode == 0 else []:
+        lines = [x for x in chunk.splitlines() if x.strip()]
+        if not lines or not lines[0].isdigit():
+            continue
+        when = datetime.datetime.fromtimestamp(int(lines[0]), datetime.timezone.utc)
+        stamp = when.strftime("%Y-%m-%dT%H:%M:%SZ")     # the format of transcript timestamps
+        for path in lines[1:]:
+            out.setdefault(path, stamp)                  # log is newest first
+    return out
+
+
+def rule_starts(rules, home):
+    """{rule rel: the moment reach counts the rule from}: the latest of its `since:`,
+    the time its file was added to git and `measure: since:` of desk.yml. A rule
+    split off yesterday would otherwise score 0 % over sessions that never had it."""
+    added, floor = _added(home), since_floor(home)
+    out = {}
+    for r in rules:
+        marks = [str(x) for x in (r.fm.get("since"), added.get(r.rel), floor) if x]
+        if marks:
+            out[r.rel] = max(marks)
+    return out
 
 
 def _delivered(rule, events, upto):
@@ -61,10 +107,12 @@ def reach(rules, records, home):
     sessions = Sessions(home)
     out = defaultdict(lambda: [0, 0])
     candidates = [r for r in rules if r.tier in ("session", "action") and r.when and not r.error]
+    starts = rule_starts(candidates, home)
     for rec in records:
         s = sessions.of(rec["cwd"])
         if s.in_home:
             continue
+        live = [r for r in candidates if _since_ok(rec, starts.get(r.rel))]
         events = rec["events"]
         first = {}
         for i, ev in enumerate(events):
@@ -72,7 +120,7 @@ def reach(rules, records, home):
                 continue
             call = _call(ev, rec["cwd"])
             repos = wh.repos_touched(call, s) if not call.is_prompt else {s.repo}
-            scoped = [r for r in candidates if r.rel not in first and homelib.in_scope(r, s, repos)]
+            scoped = [r for r in live if r.rel not in first and homelib.in_scope(r, s, repos)]
             for f in wh.fired(scoped, call, home, s.context_name):
                 first[f.rule.rel] = (f.rule, i)
         for rel, (rule, i) in first.items():
@@ -89,13 +137,15 @@ def trigger_reach(rules, records, home):
     """{named trigger: (fired sessions, reached sessions)}: of the sessions where a
     trigger of desk.yml fired, in how many a rule naming it reached the model before
     the next call. Only rules in the session's scope count; triggers that never
-    fired are absent."""
+    fired are absent. A session that came before every rule of the trigger it
+    could have got is not counted for that trigger (`rule_starts`)."""
     sessions = Sessions(home)
     out = defaultdict(lambda: [0, 0])
     candidates = [r for r in rules if r.tier in ("session", "action") and r.when and not r.error]
+    starts, floor = rule_starts(candidates, home), since_floor(home)
     for rec in records:
         s = sessions.of(rec["cwd"])
-        if s.in_home:
+        if s.in_home or not _since_ok(rec, floor):
             continue
         named = wh.named_triggers(home, s.context_name)
         events, first = rec["events"], {}
@@ -108,7 +158,10 @@ def trigger_reach(rules, records, home):
                     first[n] = (i, call)
         for n, (i, call) in first.items():
             repos = wh.repos_touched(call, s) if not call.is_prompt else {s.repo}
-            files = [r for r in candidates if n in r.when and homelib.in_scope(r, s, repos)]
+            scoped = [r for r in candidates if n in r.when and homelib.in_scope(r, s, repos)]
+            files = [r for r in scoped if _since_ok(rec, starts.get(r.rel))]
+            if scoped and not files:
+                continue
             upto = next((j for j in range(i + 1, len(events)) if events[j]["kind"] == "tool_use"),
                         len(events))
             out[n][0] += 1
@@ -218,12 +271,13 @@ def compliance(rules, records, home):
     checks = [(c.id, c.label, c.since, lambda rec, h, s, fn=c.fn: fn(rec, h))
               for c in ext.COMPLIANCE.values()]
     checks += guard_checks([r for r in rules if not r.error])
+    floor = since_floor(home)
     out = {}
     for cid, label, since, fn in checks:
         ok = total = 0
         failed = []
         for rec in records:
-            if not _since_ok(rec, since):
+            if not (_since_ok(rec, since) and _since_ok(rec, floor)):
                 continue
             try:
                 cases = fn(rec, home, sessions.of(rec["cwd"]))
@@ -257,10 +311,12 @@ def load_records(root=None, days=28, session=None):
 def report(home, root=None, days=28, examples=3):
     rules = [r for r in homelib.load_rules(home) if r.enabled]
     records = load_records(root, days)
-    lines = [f"Сессий: {len(records)} (окно {days} дн)", "", "Вес по ярусам:"]
+    floor = since_floor(home)
+    lines = [f"Сессий: {len(records)} (окно {days} дн" + (f", замер с {floor}" if floor else "") + ")",
+             "", "Вес по ярусам:"]
     for tier, n in sorted(weight(rules).items()):
         lines.append(f"  {tier:8} {dl.kb(n)}")
-    lines += ["", "Досягаемость (сработал when: → правило дошло):"]
+    lines += ["", "Досягаемость (сработал when: → правило дошло; правило — с даты, когда появился его файл):"]
     for rel, (fired, reached) in sorted(reach(rules, records, home).items()):
         lines.append(f"  {rel:50} {reached}/{fired}" + (f"  {round(100 * reached / fired)} %" if fired else ""))
     lines += ["", "Соблюдение:"]
