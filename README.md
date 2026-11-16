@@ -1,5 +1,15 @@
 [Русская версия](README.ru.md)
 
+```text
+     _           _
+  __| | ___  ___| | __      ___ ___  _ __ ___
+ / _` |/ _ \/ __| |/ /____ / __/ _ \| '__/ _ \
+| (_| |  __/\__ \   <_____| (_| (_) | | |  __/
+ \__,_|\___||___/_|\_\     \___\___/|_|  \___|
+──────────────────────────────────────────────
+    rules for Claude Code · right on time
+```
+
 # desk-core
 
 desk-core delivers your markdown rules to Claude Code **at the moment of the action
