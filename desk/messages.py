@@ -51,7 +51,7 @@ def decision_head(kind, check, reason):
 def guard_reason(why, rule_rel, found=""):
     s = f"desk: {why}" if why else "desk: запрет правила"
     if found:
-        s += f" — «{found[:80]}»"
+        s += f" — «{found if len(found) <= 80 else '…' + found[-79:]}»"
     return s + f" ({rule_rel})."
 
 

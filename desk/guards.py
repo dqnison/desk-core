@@ -244,4 +244,6 @@ def lint_guard(g):
             probs.append(f"bad regex in {kinds[0]}: {e}")
     if not g.get("why"):
         probs.append("guard without `why`: the model gets no reason")
+    if "since" in g and not g.get("id"):
+        probs.append("guard with `since` needs an `id`: a positional id moves when guards are reordered")
     return probs

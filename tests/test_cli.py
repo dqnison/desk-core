@@ -60,6 +60,26 @@ class TemplateTest(HomeCase):
         self.assertIn("Итог хука (первый вызов в сессии): ask", out)
 
 
+class CliArgsTest(HomeCase):
+    files = {"process/git.md": (ROOT / "template/process/git.md").read_text()}
+
+    def test_missing_home_is_an_error_and_home_works_after_the_command(self):
+        import contextlib as cl
+        err = io.StringIO()
+        with cl.redirect_stderr(err):
+            self.assertEqual(run_cli("lint", "--home", str(self.tmp / "none"))[0], 2)
+        self.assertIn("DESK_HOME не найден", err.getvalue())
+        self.assertEqual(run_cli("lint", "--home", str(self.home)), (0, "lint: чисто\n"))
+        self.assertEqual(run_cli("--home", str(self.home), "lint")[0], 0)
+
+    def test_why_needs_a_call_and_exit_code_tells_the_verdict(self):
+        import contextlib as cl
+        with cl.redirect_stderr(io.StringIO()):
+            self.assertEqual(run_cli("why", "--home", str(self.home))[0], 2)
+        self.assertEqual(run_cli("why", "--home", str(self.home), "--exit-code", "git commit -m 'Fixed stuff.'")[0], 2)
+        self.assertEqual(run_cli("why", "--home", str(self.home), "--exit-code", "ls")[0], 0)
+
+
 class LintTest(HomeCase):
     files = {
         "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"

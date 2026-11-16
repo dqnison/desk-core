@@ -169,6 +169,8 @@ sensitive body
         self.assertTrue(guards.lint_guard({"deny": "x", "ask": "y", "why": "z"}))
         self.assertTrue(guards.lint_guard({"deny": "x", "in": "body", "why": "z"}))
         self.assertTrue(guards.lint_guard({"deny": "x"}))
+        self.assertTrue(guards.lint_guard({"deny": "x", "why": "y", "since": "2026-01-01"}))
+        self.assertFalse(guards.lint_guard({"deny": "x", "why": "y", "since": "2026-01-01", "id": "x"}))
 
 
 class ExtensionTest(HomeCase):

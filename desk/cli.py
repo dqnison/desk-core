@@ -13,7 +13,18 @@ TEMPLATE = ROOT / "template"
 SLOTS = 3
 
 
+def _home(a):
+    home = Path(a.home or homelib.desk_home()).expanduser()
+    if not home.is_dir():
+        print(f"DESK_HOME не найден: {home} — задать DESK_HOME или --home, завести: desk init {home}",
+              file=sys.stderr)
+        return None
+    return home
+
+
 def cmd_lint(a):
+    if _home(a) is None:
+        return 2
     problems = lint.run(a.home)
     if problems:
         print(lint.format_problems(problems))
@@ -24,6 +35,8 @@ def cmd_lint(a):
 
 
 def cmd_measure(a):
+    if _home(a) is None:
+        return 2
     print(measure.report(a.home or homelib.desk_home(), a.projects, a.days, a.examples))
     return 0
 
@@ -48,7 +61,13 @@ def _call(a):
 def cmd_why(a):
     """Dry run of the hooks on one call: what fires, what is decided, what is delivered.
     The decisions come from the hook code itself on a throwaway state."""
-    home = Path(a.home or homelib.desk_home())
+    home = _home(a)
+    if home is None:
+        return 2
+    if not (a.target or a.prompt or a.input):
+        print("desk why: нужен вызов — команда Bash, путь с --tool Edit|Write, --input или --prompt",
+              file=sys.stderr)
+        return 2
     call, data = _call(a)
     session = homelib.session_from(data, home, project_dir="")
     all_rules = homelib.load_rules(home)
@@ -58,7 +77,8 @@ def cmd_why(a):
     print(f"DESK_HOME: {home}")
     print(f"Контекст: {session.context_name or '—'} ({session.basis}); репозиторий: {session.repo or '—'}"
           + (f"; затронуты: {', '.join(sorted(repos))}" if repos - {session.repo} else ""))
-    what = f"реплика «{call.prompt}»" if call.is_prompt else f"{call.tool} {json.dumps(call.input, ensure_ascii=False)[:120]}"
+    shown = json.dumps(call.input, ensure_ascii=False)
+    what = f"реплика «{call.prompt}»" if call.is_prompt else f"{call.tool} {shown if len(shown) <= 160 else shown[:80] + ' … ' + shown[-70:]}"
     print(f"Вызов: {what} (cwd {call.cwd})")
     if call.targets:
         print("Пишет: " + ", ".join(call.targets))
@@ -94,6 +114,8 @@ def cmd_why(a):
         print("  подано: " + ", ".join(labels))
     if state.pending:
         print("  в очередь на следующий вызов: " + ", ".join(state.pending))
+    if a.exit_code:
+        return {"deny": 2, "ask": 1}.get(verdict, 0)
     return 0
 
 
@@ -174,27 +196,31 @@ def cmd_doctor(a):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(prog="desk", description="Движок доставки правил ассистенту.")
-    ap.add_argument("--home", help="DESK_HOME (по умолчанию переменная окружения или ~/desk)")
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--home", default=argparse.SUPPRESS,
+                        help="DESK_HOME (по умолчанию переменная окружения или ~/desk)")
+    ap = argparse.ArgumentParser(prog="desk", description="Движок доставки правил ассистенту.", parents=[common])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("lint", help="структура DESK_HOME")
-    m = sub.add_parser("measure", help="досягаемость и соблюдение по транскриптам")
+    sub.add_parser("lint", help="структура DESK_HOME", parents=[common])
+    m = sub.add_parser("measure", help="досягаемость и соблюдение по транскриптам", parents=[common])
     m.add_argument("--days", type=int, default=28)
     m.add_argument("--projects", help="каталог транскриптов (по умолчанию ~/.claude/projects)")
     m.add_argument("--examples", type=int, default=3)
-    w = sub.add_parser("why", help="что сработает на вызов (сухой прогон хуков)")
+    w = sub.add_parser("why", help="что сработает на вызов (сухой прогон хуков)", parents=[common])
+    w.add_argument("--exit-code", action="store_true", help="код выхода 2 при запрете, 1 при спросе")
     w.add_argument("target", nargs="?", default="", help="Bash-команда или путь (для --tool Edit/Write)")
     w.add_argument("--tool", default="Bash")
     w.add_argument("--content", help="новый текст для Edit/Write")
     w.add_argument("--input", help="JSON входа для прочих инструментов")
     w.add_argument("--prompt", help="реплика пользователя вместо вызова")
     w.add_argument("--cwd")
-    i = sub.add_parser("init", help="скелет DESK_HOME и подключение")
+    i = sub.add_parser("init", help="скелет DESK_HOME и подключение", parents=[common])
     i.add_argument("dir", nargs="?")
     i.add_argument("--hooks", action="store_true", help="напечатать блок хуков для settings.json")
     i.add_argument("--worktree", action="store_true", help="с --hooks: добавить WorktreeCreate (дерево сессии от интеграционной ветки)")
-    sub.add_parser("doctor", help="проверка окружения")
+    sub.add_parser("doctor", help="проверка окружения", parents=[common])
     a = ap.parse_args(argv)
+    a.home = getattr(a, "home", None)
     return {"lint": cmd_lint, "measure": cmd_measure, "why": cmd_why, "init": cmd_init,
             "doctor": cmd_doctor}[a.cmd](a)
 
