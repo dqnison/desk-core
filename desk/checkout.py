@@ -133,6 +133,12 @@ def lines(st, busy=(), prefix=""):
     return out
 
 
+def auto_on(home):
+    """The hook moves an idle checkout to its base only with `checkout: {auto: true}`:
+    without it the state and the command are said, git is not touched."""
+    return ((homelib.config(home).get("checkout") or {}).get("auto")) is True
+
+
 def bring_to_base(cwd, st):
     """An idle checkout to its base: only when the work surely lives elsewhere — clean,
     HEAD a branch, pushed whole or merged into the base. The branch stays. Busy is
@@ -223,7 +229,8 @@ def on_start(ev):
             h.row("чекаут", f"origin/{integration} не найден · состояние не считано", "🌿", "git-branch")
         return None
     why = busy(cwd, s, st)
-    auto = bring_to_base(cwd, st) if not why and ev.data.get("source") == "startup" else None
+    auto = (bring_to_base(cwd, st) if auto_on(s.home) and not why and ev.data.get("source") == "startup"
+            else None)
     if auto and AUTO_MARK in auto:
         st = state(cwd, integration)
     if h is not None:

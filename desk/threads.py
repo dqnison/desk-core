@@ -13,13 +13,18 @@ import re
 import subprocess
 from pathlib import Path
 
-from . import ext, frontmatter
+from . import ext, frontmatter, home as homelib
 
 NOW_MAX_BYTES = 4096
 STALE_DAYS = 14
 NEXT_HEADER = "## Дальше"
 CLOSED_MARK = "**Закрыта"
 _LINK_RE = re.compile(r"\(([^)#\s]*threads/[^)#]+\.md)\)")
+
+
+def on(home):
+    """The threads checks run with `threads: true` in desk.yml."""
+    return homelib.config(home).get("threads") is True
 
 
 def now_files(home):
@@ -45,6 +50,8 @@ def now_of(thread):
 @ext.lint("threads", "нити: статус, место в now.md, «Дальше» у открытой, «Закрыта» у закрытой")
 def lint_threads(home):
     out, linked = [], {}
+    if not on(home):
+        return out
     for now in now_files(home):
         for link in _LINK_RE.findall(now.read_text(encoding="utf-8")):
             target = (now.parent / link).resolve()
@@ -91,6 +98,8 @@ def lint_freshness(home):
     """Each now.md is at most NOW_MAX_BYTES and was touched within STALE_DAYS: a change
     in the working tree counts, otherwise the date of its last commit."""
     out = []
+    if not on(home):
+        return out
     for now in now_files(home):
         rel = now.relative_to(home)
         size = now.stat().st_size

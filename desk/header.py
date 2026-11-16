@@ -143,4 +143,5 @@ def render(h, now=None):
 
 
 def enabled(home):
-    return homelib.config(home).get("header", True) is not False
+    """Off unless `header: true` in desk.yml: a widget per session costs tokens."""
+    return homelib.config(home).get("header") is True

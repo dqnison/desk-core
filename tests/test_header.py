@@ -43,6 +43,7 @@ class RenderTest(unittest.TestCase):
 
 class HookHeaderTest(HomeCase):
     files = {
+        "desk.yml": "header: true\n",
         "desk.md": "---\ntier: import\n---\n# Entry\n",
         "process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\ngit\n",
         "contexts/personal/context.md": "---\ntier: session\nmatch: {default: true}\n---\nhub\n",

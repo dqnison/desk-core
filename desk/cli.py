@@ -108,7 +108,9 @@ def registered_slots(settings=None):
         return 1
 
 
-def hooks_block():
+def hooks_block(worktree=False):
+    """The hooks for settings.json; `worktree` adds WorktreeCreate (opt-in: the session
+    worktree from the place's integration branch, desk.worktree)."""
     entry = f'python3 "{ROOT / "bin" / "desk-hook"}"'
     start = [{"type": "command", "command": f"{entry} --slot {i} --slots {SLOTS}", "timeout": 30}
              for i in range(0, SLOTS + 1)]
@@ -119,13 +121,14 @@ def hooks_block():
         "PreToolUse": [{"matcher": "*", "hooks": one}],
         "PostToolUse": [{"matcher": "*", "hooks": one}],
         "SessionEnd": [{"hooks": one}],
-        "WorktreeCreate": [{"hooks": [{"type": "command", "command": entry, "timeout": 60}]}],
+        **({"WorktreeCreate": [{"hooks": [{"type": "command", "command": entry, "timeout": 60}]}]}
+           if worktree else {}),
     }}
 
 
 def cmd_init(a):
     if a.hooks:
-        print(json.dumps(hooks_block(), indent=2, ensure_ascii=False))
+        print(json.dumps(hooks_block(a.worktree), indent=2, ensure_ascii=False))
         return 0
     target = Path(a.dir or homelib.desk_home()).expanduser()
     if target.exists() and any(target.iterdir()):
@@ -189,6 +192,7 @@ def main(argv=None):
     i = sub.add_parser("init", help="скелет DESK_HOME и подключение")
     i.add_argument("dir", nargs="?")
     i.add_argument("--hooks", action="store_true", help="напечатать блок хуков для settings.json")
+    i.add_argument("--worktree", action="store_true", help="с --hooks: добавить WorktreeCreate (дерево сессии от интеграционной ветки)")
     sub.add_parser("doctor", help="проверка окружения")
     a = ap.parse_args(argv)
     return {"lint": cmd_lint, "measure": cmd_measure, "why": cmd_why, "init": cmd_init,

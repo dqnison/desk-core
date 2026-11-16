@@ -404,6 +404,8 @@ def sweep_lines(home, here, checkouts, integration="", production=""):
 @ext.on("SessionStart")
 def on_start(ev):
     s, h = ev.session, ev.header
+    if homelib.config(s.home).get("sweep") is not True:      # opt-in: `sweep: true` in desk.yml
+        return None
     here, checkouts = checkouts_of(s)
     if not checkouts:
         return None

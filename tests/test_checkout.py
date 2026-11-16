@@ -41,7 +41,18 @@ class BranchesTest(HomeCase):
 
 
 class StartTest(HomeCase):
-    files = BranchesTest.files
+    files = {**BranchesTest.files, "desk.yml": "checkout: {auto: true}\n"}
+
+    def test_without_auto_git_is_not_touched(self):
+        from desk import header as hdr, home
+        (self.home / "desk.yml").write_text("")
+        root, run = repo(self.tmp)
+        run("checkout", "-b", "wip/done")
+        s = home.session_from({"cwd": str(root), "session_id": "s1"}, self.home)
+        text = checkout.on_start(ext.Event("SessionStart", {"source": "startup"}, s, header=hdr.Header("t")))
+        self.assertNotIn(checkout.AUTO_MARK, text)
+        self.assertIn("git checkout develop", text)
+        self.assertEqual(run("rev-parse", "--abbrev-ref", "HEAD").stdout.decode().strip(), "wip/done")
 
     def test_start_brings_idle_checkout_to_base_and_fills_header(self):
         from desk import header as hdr, home

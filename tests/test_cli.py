@@ -132,8 +132,19 @@ class StructureLintTest(HomeCase):
         })
 
 
+class ExtrasOffTest(HomeCase):
+    """Without the desk.yml keys the extras say nothing and touch nothing."""
+    files = {"threads/x.md": "---\nstatus: open\n---\n# no now.md, no «Дальше»\n"}
+
+    def test_threads_lint_and_header_off_by_default(self):
+        from desk import header as hdr
+        self.assertFalse([c for _, _, c, _ in lint.run(self.home) if c in ("threads", "freshness")])
+        self.assertFalse(hdr.enabled(self.home))
+
+
 class ThreadsLintTest(HomeCase):
     files = {
+        "desk.yml": "threads: true\n",
         "now.md": "# Нити\n\n## Ok\n→ [ok.md](threads/ok.md)\n\n## Done\n→ [done.md](threads/done.md)\n",
         "threads/ok.md": "---\nstatus: open\n---\n# Ok\n\n## Дальше\nx\n",
         "threads/lost.md": "---\nstatus: open\n---\n# Lost\n",
