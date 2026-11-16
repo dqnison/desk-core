@@ -255,7 +255,7 @@ def load_records(root=None, days=28, session=None):
 
 
 def report(home, root=None, days=28, examples=3):
-    rules = homelib.load_rules(home)
+    rules = [r for r in homelib.load_rules(home) if r.enabled]
     records = load_records(root, days)
     lines = [f"Сессий: {len(records)} (окно {days} дн)", "", "Вес по ярусам:"]
     for tier, n in sorted(weight(rules).items()):

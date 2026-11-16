@@ -96,6 +96,11 @@ class Rule:
         return self.fm.get("tier")
 
     @property
+    def enabled(self):
+        """`enabled: false` switches a rule off without deleting it: no delivery, no guard."""
+        return self.fm.get("enabled") is not False
+
+    @property
     def when(self):
         """Entries (mappings) and names of shared triggers (strings, desk.yml)."""
         return [w for w in frontmatter.as_list(self.fm.get("when")) if isinstance(w, (dict, str))]

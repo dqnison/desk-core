@@ -98,6 +98,28 @@ class WorktreeImportsTest(HomeCase):
         self.assertEqual([c for _, _, c, _ in lint.run(self.home) if c == "imports"], [])
 
 
+class EnabledAndDoctorTest(HomeCase):
+    files = {"process/git.md": (ROOT / "desk/template/process/git.md").read_text()}
+
+    def test_disabled_rule_neither_fires_nor_guards(self):
+        args = ("why", "--home", str(self.home), "--exit-code", "git commit -m 'Fixed stuff.'")
+        self.assertEqual(run_cli(*args)[0], 2)
+        rule = self.home / "process/git.md"
+        rule.write_text(rule.read_text().replace("tier: action", "tier: action\nenabled: false", 1))
+        self.assertEqual(run_cli(*args)[0], 0)
+        self.assertEqual(lint.run(self.home), [])          # still linted
+
+    def test_hooks_wired_reads_settings_and_plugins(self):
+        settings = self.tmp / "settings.json"
+        settings.write_text(json.dumps(cli.hooks_block()))
+        self.assertEqual(cli.hooks_wired(settings, self.tmp / "none.json"),
+                         ["settings.json: PostToolUse, PreToolUse, SessionEnd, SessionStart, UserPromptSubmit"])
+        plugins = self.tmp / "plugins.json"
+        plugins.write_text(json.dumps({"plugins": {"desk@local": [{}]}}))
+        self.assertEqual(cli.hooks_wired(self.tmp / "none.json", plugins), ["плагин desk"])
+        self.assertEqual(cli.hooks_wired(self.tmp / "none.json", self.tmp / "none.json"), [])
+
+
 class LintTest(HomeCase):
     files = {
         "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"

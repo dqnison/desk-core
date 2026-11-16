@@ -71,7 +71,7 @@ def cmd_why(a):
     call, data = _call(a)
     session = homelib.session_from(data, home, project_dir="")
     all_rules = homelib.load_rules(home)
-    good = [r for r in all_rules if not r.error]
+    good = [r for r in all_rules if not r.error and r.enabled]
     repos = {session.repo} if call.is_prompt else wh.repos_touched(call, session)
     scoped = [r for r in good if homelib.in_scope(r, session, repos)]
     print(f"DESK_HOME: {home}")
@@ -189,8 +189,10 @@ def cmd_doctor(a):
     if not home.is_dir():
         return 1
     rules = homelib.load_rules(home)
-    tiers = {t: sum(1 for r in rules if r.tier == t) for t in homelib.TIERS}
-    print("правил: " + ", ".join(f"{t} {n}" for t, n in tiers.items()))
+    tiers = {t: sum(1 for r in rules if r.tier == t and r.enabled) for t in homelib.TIERS}
+    off = [r.rel for r in rules if not r.enabled]
+    print("правил: " + ", ".join(f"{t} {n}" for t, n in tiers.items())
+          + (f"; выключено (enabled: false): {', '.join(off)}" if off else ""))
     broken = [r.rel for r in rules if r.error]
     if broken:
         ok = False
@@ -201,7 +203,32 @@ def cmd_doctor(a):
     print(f"расширений с ошибкой: {len(errs)}" + "".join(f"\n  {n}: {e}" for n, e in errs))
     if homelib.quiet():
         print("DESK_HOOKS_OFF задан: хуки молчат")
-    return 0 if ok and not errs else 1
+    wired = hooks_wired()
+    print("хуки: " + ("подключены — " + ", ".join(wired) if wired else
+                      "НЕ подключены: ни плагина desk, ни desk-hook в ~/.claude/settings.json "
+                      "(desk init --hooks печатает блок)"))
+    return 0 if ok and not errs and wired else 1
+
+
+def hooks_wired(settings=None, plugins=None):
+    """Where the hook is wired: events of settings.json running desk-hook, or the plugin."""
+    out = []
+    try:
+        hooks = json.loads(Path(settings or Path.home() / ".claude" / "settings.json").read_text())["hooks"]
+        events = [ev for ev, ms in hooks.items()
+                  if any("desk-hook" in h.get("command", "") or "desk.hook" in h.get("command", "")
+                         for m in ms for h in m.get("hooks", []))]
+        if events:
+            out.append("settings.json: " + ", ".join(sorted(events)))
+    except Exception:
+        pass
+    try:
+        installed = json.loads(Path(plugins or Path.home() / ".claude" / "plugins" / "installed_plugins.json").read_text())
+        if any(str(k).split("@")[0] == "desk" for k in (installed.get("plugins") or installed)):
+            out.append("плагин desk")
+    except Exception:
+        pass
+    return out
 
 
 def main(argv=None):

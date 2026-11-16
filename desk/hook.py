@@ -77,7 +77,7 @@ def handle(data, slot=1, slots=1):
 
 # -------------------------------------------------------------------- common
 def _rules(session):
-    return [r for r in homelib.load_rules(session.home) if not r.error]
+    return [r for r in homelib.load_rules(session.home) if not r.error and r.enabled]
 
 
 def deliverable(rules, session, repos):
