@@ -361,6 +361,7 @@ desk/                  delivery: frontmatter, home, when, deliver, guards, hook,
 desk/template/         the default desk for desk init
 pyproject.toml         package desk-core: commands desk and desk-hook (uvx/pipx)
 tests/                 python3 -m unittest; run by .githooks/pre-commit
+docs/index.md          the guide in Russian, one file per topic
 docs/decisions.md      what was checked and why it is built this way
 ```
 
