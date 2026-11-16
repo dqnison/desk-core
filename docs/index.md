@@ -64,4 +64,4 @@ tests/                 python3 -m unittest; .githooks/pre-commit гоняет и
 docs/decisions.md      что проверено и почему сделано так
 ```
 
-English: [README.md](../README.md) · решения и проверки: [decisions.md](decisions.md)
+Решения и проверки — [decisions.md](decisions.md).
