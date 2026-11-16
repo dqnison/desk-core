@@ -80,6 +80,24 @@ class CliArgsTest(HomeCase):
         self.assertEqual(run_cli("why", "--home", str(self.home), "--exit-code", "ls")[0], 0)
 
 
+class WorktreeImportsTest(HomeCase):
+    """The entry @-imports the main copy; lint of a worktree of DESK_HOME checks its own files."""
+    files = {"desk.md": "---\ntier: import\n---\n# D\n"}
+
+    def test_imports_resolve_into_the_worktree(self):
+        import subprocess
+        run = lambda *a: subprocess.run(["git", "-C", str(self.home), *a], check=True, capture_output=True)
+        (self.home / "entry.md").write_text(f"@{self.home / 'desk.md'}\n")
+        (self.home / "desk.yml").write_text(f"entry: '{self.home / 'entry.md'}'\n")
+        run("init", "-q")
+        run("add", "-A")
+        run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "chore(no-ref): seed")
+        tree = self.tmp / "tree"
+        run("worktree", "add", "-q", str(tree))
+        self.assertEqual([c for _, _, c, _ in lint.run(tree) if c == "imports"], [])
+        self.assertEqual([c for _, _, c, _ in lint.run(self.home) if c == "imports"], [])
+
+
 class LintTest(HomeCase):
     files = {
         "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"

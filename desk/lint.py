@@ -21,6 +21,7 @@ Output: `path:line: [check] message`; exit 1 when anything is found.
 """
 import os
 import re
+import subprocess
 from pathlib import Path
 
 from . import deliver as dl, ext, frontmatter, guards, home as homelib, when as wh
@@ -209,26 +210,48 @@ def check_links(home, out):
                     out.add(home, p, n, "links", f"no heading for #{anchor} in {file or p.name}")
 
 
+def _main_checkout(home):
+    """The main working copy when DESK_HOME is a linked git worktree of it, else None."""
+    try:
+        common = subprocess.run(["git", "-C", str(home), "rev-parse", "--path-format=absolute",
+                                 "--git-common-dir"], capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        return None
+    main = Path(common).parent.resolve() if common.endswith("/.git") else None
+    return main if main and main != Path(home).resolve() else None
+
+
+def _in_home(path, home):
+    """A path the entry names under the main checkout, read in this worktree: the entry
+    and its @-imports are absolute (the assistant loads them from the main copy), so a
+    worktree of DESK_HOME is checked against its own files, not the main copy's."""
+    p, main = Path(path).expanduser().resolve(), _main_checkout(home)
+    if main and p.is_relative_to(main) and not p.is_relative_to(Path(home).resolve()):
+        return Path(home).resolve() / p.relative_to(main)
+    return p
+
+
 def entry_file(home):
     env = os.environ.get("DESK_ENTRY")
     cfg = homelib.config(home).get("entry")
     raw = env or cfg
-    return Path(str(raw)).expanduser() if raw else None
+    return _in_home(str(raw), home) if raw else None
 
 
-def imported(entry):
+def imported(entry, home=None):
     try:
         text = entry.read_text(encoding="utf-8")
     except OSError:
         return None
-    return {str(Path(m).expanduser().resolve()) for m in re.findall(r"^@(\S+)", text, re.M)}
+    return {str(_in_home(m, home) if home else Path(m).expanduser().resolve())
+            for m in re.findall(r"^@(\S+)", text, re.M)}
 
 
 def check_imports(home, rules, out):
     entry = entry_file(home)
     if entry is None:
         return
-    got = imported(entry)
+    got = imported(entry, home)
     if got is None:
         out.add(home, entry, None, "imports", "entry file is not readable")
         return
