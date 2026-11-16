@@ -1,4 +1,4 @@
-[Русская версия](README.ru.md)
+[Документация на русском](docs/index.md)
 
 ![desk-core — rules for Claude Code that arrive right on time](docs/banner.en.svg)
 
