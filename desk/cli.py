@@ -168,12 +168,13 @@ def cmd_init(a):
         shutil.copytree(TEMPLATE, target, dirs_exist_ok=True)
         print(f"Скелет DESK_HOME создан: {target}")
     imports = [r for r in homelib.load_rules(target) if r.tier == "import"]
+    plugin = (f"плагином Claude Code (на сессию: claude --plugin-dir {ROOT}),\n   либо "
+              if (ROOT / "hooks" / "hooks.json").exists() else "")
     print(f"""
-1. Переменная окружения (shell profile):
-   export DESK_HOME={target}
+1. DESK_HOME — в "env" файла ~/.claude/settings.json (десктоп не читает профиль shell):
+   "env": {{"DESK_HOME": "{target}"}}
 
-2. Хуки — плагином Claude Code (на сессию: claude --plugin-dir {ROOT}),
-   либо блоком в settings.json: desk init --hooks
+2. Хуки — {plugin}блоком в settings.json: desk init --hooks
 
 3. Ярус import — @-импорты во входе ассистента (~/.claude/CLAUDE.md):""")
     for r in imports:

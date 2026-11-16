@@ -1,0 +1,336 @@
+[Русская версия](README.ru.md)
+
+# desk-core
+
+desk-core delivers your markdown rules to Claude Code **at the moment of the action
+that needs them** — a `git commit`, a Bash command, a written path, a prompt, a skill,
+an MCP tool — instead of loading everything at session start. **Guards** deny or ask
+before a call runs, with the reason taken from the same rule file. Rules **switch by
+repository**: a context (workplace) is chosen by the session's `git remote`. And
+`desk measure` reads session transcripts to show whether a rule actually reached the
+model when its trigger fired, and whether each guard held.
+
+Claude Code already loads `.claude/rules/*.md` by file paths; `desk export
+claude-rules` writes path-triggered rules in that format. desk-core adds the rest:
+command, prompt, skill and tool triggers, guards, contexts and the measurement.
+
+> desk-core is Claude Code hooks plus the `desk` CLI: Python 3.10+ stdlib, no model
+> calls. It knows no tool, tracker or workplace — those live in your rules.
+>
+> **Status.** The author's own desk runs on the core, hooks wired in `settings.json`.
+> Confirmed live: session start, delivery on prompts and calls, `deny` before a call.
+> Not yet confirmed live: installing as a plugin through the marketplace, SessionEnd.
+> Hook messages and CLI output are in Russian for now; localization is planned.
+
+## How it looks
+
+A file `process/git.md` in your desk folder (`DESK_HOME`):
+
+```markdown
+---
+tier: action
+when:
+  - git: write                  # deliver when the model runs a git command that changes something
+guard:
+  - deny-unless: '^(feat|fix|chore)\((no-ref|[A-Z]+-\d+)\): [a-z]'
+    in: commit-subject          # check the commit subject
+    why: subject — <type>(<TICKET>|no-ref): <description>
+---
+# Git
+…rule text for the model…
+```
+
+The model calls `git commit -m "fixed bug"`. Before the call runs, the hook:
+
+1. sees that `when: git: write` fired → puts the text of `git.md` into the model's context;
+2. sees that the subject fails the `guard` → **denies the call** with the reason from `why`;
+3. the model reads the reason and the rule, retries with `fix(no-ref): handle empty cart` — it passes.
+
+A rule is delivered once per session. If the model already read the whole file, it is
+not delivered again.
+
+## Try it in 5 minutes
+
+No install needed — a checkout of this repository is enough (`<repo>` below):
+
+```bash
+alias desk=<repo>/bin/desk
+desk init ~/desk-try                       # the default desk from desk/template/
+export DESK_HOME=~/desk-try
+desk why "git commit -m 'Fixed stuff.'"    # dry run: fires process/git.md, deny commit-format
+claude --plugin-dir <repo>                 # a session with the hooks, this run only
+```
+
+The default desk: rules for git, tests, a task loop and threads, a safety pack, an
+example workplace `contexts/example/` (Acme, `git.example.com`, repo `shop-api`) and a
+`personal` context. `desk why` runs the hook code on one call — rules that fire, guard
+decisions, what gets delivered — and executes nothing. Also: `--prompt 'make a commit'`,
+`--tool Edit billing/pay.py --content 'x'`, `--cwd <dir>`, `--exit-code` (2 on deny, 1
+on ask). In the `--plugin-dir` session ask for a commit "Fixed stuff." — it is denied.
+
+## Install
+
+**CLI** — any of:
+```bash
+uvx --from <repo> desk init ~/desk     # run without installing; <repo> = a path or git+<url>
+uv tool install <repo>                 # or: pipx install <repo>
+<repo>/bin/desk init ~/desk            # straight from a checkout
+```
+
+**Hooks** — one of:
+- As a Claude Code plugin from a checkout (local marketplace in
+  `.claude-plugin/marketplace.json`): `claude plugin marketplace add <repo>`, then
+  `claude plugin install desk@desk-core`. Or `claude --plugin-dir <repo>` for one session.
+- Without the plugin: `desk init --hooks` prints a `hooks` block to paste into
+  `~/.claude/settings.json`; `desk init --hooks --worktree` adds the `WorktreeCreate`
+  hook (see Extras). Run it from a checkout or a persistent install (`uv tool` /
+  `pipx`): under `uvx` the printed path points into uv's cache.
+
+Then set **`DESK_HOME`** in `~/.claude/settings.json` under `env`
+(`{"DESK_HOME": "/Users/<you>/desk"}`; the desktop app does not read your shell
+profile; default `~/desk`), add the **`import` tier** as `@` lines to
+`~/.claude/CLAUDE.md` (a hook cannot deliver it; `desk init <dir>` prints the lines),
+and run **`desk doctor`**: Python, `DESK_HOME`, rule counts, the context of the current
+folder, extensions, and whether the hooks are wired (plugin or `settings.json`). Hooks
+wired twice deliver every rule twice.
+
+**Coming from a CLAUDE.md.** `desk import CLAUDE.md` splits a file (CLAUDE.md,
+AGENTS.md, `.cursorrules`) by `##` sections into `process/<slug>.md` rules of tier
+`import`; nothing is overwritten. Point `@` lines at them and the model sees the same
+as before. Then give sections a `when:` and tier `action`, so they arrive at the action
+instead of sitting in every session.
+
+## Tiers: when the model sees a rule
+
+`tier` in the frontmatter is the deadline by which the rule must be in context.
+
+| `tier` | the model sees it | delivered by |
+| --- | --- | --- |
+| `import` | always, in every session | an `@`-import in `~/.claude/CLAUDE.md` — the only guarantee |
+| `session` | before the first action of a session | the SessionStart hook, as content |
+| `action` | when its `when:` fires | the hook on a prompt or a tool call |
+| `link` | only if the model opens it by a link | nothing: reference |
+
+The limit of `action`: the rule arrives **with the result** of the call that fired it,
+so it no longer affects that call. If a rule must work the first time, use a `guard`
+(decided before the call), `gate: true` (below) or a `prompt:` trigger (the rule
+arrives with the prompt, before any tool).
+
+A hook returns at most ~12 KB at once (Claude Code hides longer output in a file with a
+preview). A larger rule is cut by `##` sections into "part 1 of 3"; the rest comes with
+the next call. `clear` and `compact` reset what was delivered — rules arrive again.
+
+`enabled: false` in the frontmatter switches a rule off without deleting it: it is not
+delivered and its guards do not apply; `desk lint` still checks it.
+
+## `when:` — when to deliver
+
+A list of entries; the rule fires if any entry matches. Inside an entry all keys must match.
+
+| key | fires on | example |
+| --- | --- | --- |
+| `tool` | tool name, glob | `tool: 'mcp__monitoring*'` |
+| `command` | Bash command, case-sensitive regex | `command: '\bdocker compose\b'` |
+| `input` | a tool input field, regex | `input: {path: '/logs'}` |
+| `paths` | a file the call **writes** (Edit/Write, or Bash: `>`, `tee`, `sed -i`, `cp`, `mv`, `rm`, scripts) | `paths: ['billing/']` |
+| `skill` | a skill call by name | `skill: [tracker]` |
+| `git` | `write` — a git subcommand that changes something; or a list of subcommands | `git: [worktree]` |
+| `desk` | `true` — a write into `DESK_HOME`, or a command run from inside it | `desk: true` |
+| `prompt` | the user's prompt, case-insensitive regex; one per entry | `prompt: 'logs\|deploy'` |
+
+`gate: true` in an entry: the first such call, while the rule is not in context yet, is
+denied together with the rule text; the retry passes. For rules that must shape the
+choice of action ("logs come from the log store, not the container").
+
+Globs: `**` crosses folders, `*` does not, `billing/` means everything inside. A
+relative glob is matched against the path from the file's git root (or from
+`DESK_HOME`); a file outside both matches only absolute globs.
+
+**Shared triggers.** A condition many rules need is defined once in `desk.yml` and used
+by name — `when: [tests, mr]` (names and regular entries mix):
+
+```yaml
+triggers:
+  mr:
+    - command: 'mr-cli|merge_request'
+    - skill: [merge-requests]
+```
+
+**`also:`** — a rule pulls others in when it fires: `also: [process/sensitive.md]` on a
+repository's paid-code rule delivers the general paid-code rule, which has no `when:`.
+
+## `guard:` — what to stop
+
+```yaml
+guard:
+  - deny: 'Co-Authored-By|Generated with'   # a match is a violation
+    in: commit-message
+    id: commit-no-attribution
+    why: no tool attribution in commits
+  - ask: 'billing/'                          # for in: paths — a glob
+    in: paths
+  - deny: '"target_branch": "main"'
+    in: input                                # tool input as JSON
+    tool: 'mcp__*merge_request*'
+    why: merge requests go to develop
+```
+
+| key | value |
+| --- | --- |
+| decision | `deny`, `ask` (ask the human), `deny-unless` / `ask-unless` (a violation when it does **not** match) |
+| `in` | `command` (default), `commit-message`, `commit-subject`, `content` (what the call writes), `paths` (files it writes), `input` (tool input as JSON — for MCP tools) |
+| `tool` | optional: only for these tools (globs) |
+| `paths` | optional: only for calls writing such files |
+| `why` | the reason, seen by both the model and the human |
+| `id` | the guard's name in `desk measure`; without it `<file>#<n>`, which breaks when guards are reordered |
+| `since` | the date `desk measure` counts compliance from; requires `id` |
+
+A guard is active whenever its rule is in scope (general or of the current context) —
+no `when:` needed. `deny` applies every time, `ask` once per session. The rule text
+reaches the model with the decision. The hook never rewrites the command.
+
+**Starter safety pack.** The default desk ships `process/safety.md` (tier `link`,
+guards only): deny `rm -rf` on `/`, `~` or `*`; ask before writing `.env`, `.env.*`,
+`*.pem`, `id_rsa*` inside a repository. The example extension `ext/no_force_push.py`
+denies `git push --force` to `main`, `master` or `develop`. Switch either off with
+`enabled: false` (the rule) or by deleting the file.
+
+## Contexts: workplaces and repositories
+
+Everything tied to a workplace (hosting, tracker, repositories) lives in
+`contexts/<place>/`. The hub `contexts/<place>/context.md` says when the place is active:
+
+```yaml
+---
+tier: session
+match:
+  remote: ['git.example.com']   # substring of `git remote -v` in the session folder
+  path: ['~/work/*']            # or the session folder
+  default: true                 # or "when nothing else matched"
+---
+```
+
+- Rules in `contexts/<place>/` apply only while the place is active; a session inside
+  `DESK_HOME/contexts/<place>/` is always that place.
+- Rules in `contexts/<place>/projects/<repo>/` apply when a call touches that
+  repository (named from its remote), in a session of any context.
+- `skip_in: [desk, <place>]` on a `session` file: not delivered inside `DESK_HOME` or
+  in the named place.
+- `contexts/<place>/place-words.txt` — names of the place (company, hosts) that must
+  not leak into portable files (`portable` in `desk.yml`; default: everything outside
+  `contexts/`). An edit adding one is an `ask`; `desk lint` lists them.
+
+## `desk.yml` — engine settings
+
+An optional file at the root of `DESK_HOME`, kept apart from the rules: the `import`
+tier loads into every session and must not carry engine data.
+
+```yaml
+portable: ['desk.md', 'process/**']   # the portable layer: no place names
+entry: '~/.claude/CLAUDE.md'          # desk lint checks its @-imports against tier import
+triggers: {…}                         # shared triggers, see when:
+require_tier: ['process/*.md']        # desk lint: these files must have a tier
+interfaces: {local: 'how to run', …}  # desk lint: allowed file names in projects/<repo>/
+```
+
+`contexts/<place>/desk.yml` defines triggers of the place under the same names: they
+add to the root ones while the place is active. A portable rule says `when: [tracker]`;
+the place says which CLI or API is its tracker. Where a place does not define the
+trigger, the rule stays silent.
+
+## Extras (off by default)
+
+Not rule delivery but habits around repositories. By default the core does none of this
+and never changes git state. Each is switched on by a key in the root `desk.yml`:
+
+```yaml
+header: true                      # session header as the first block (a widget in the desktop app)
+journal: journal                  # session journal: a line on exit, the tail at start
+meta_goal: 25                     # with journal: header signal when > 25 % of 7-day sessions ran in DESK_HOME
+threads: true                     # desk lint: threads/ files and the now.md lists
+sweep: true                       # summary of worktrees and docker stacks at start
+checkout: {auto: true}            # an idle checkout (clean, pushed) is brought to its base by the hook
+worktree: {branch: 'wip/{name}'}  # branch of the session worktree; hook: desk init --hooks --worktree
+```
+
+The place's branches go to `contexts/<place>/desk.yml`, e.g. `branches: {integration:
+develop, production: main, repos: {shop-api: {integration: dev}}}`. With them, session
+start says whether the checkout is on its base and which command brings it there
+(read-only unless `checkout: {auto: true}`; the branch is kept). The session worktree
+is created from the integration branch.
+
+## Extensions: checks in code
+
+What a regex cannot express is a Python file in `DESK_HOME/ext/`:
+
+```python
+from desk import ext
+
+@ext.live("no-force-push", "no force push to a shared branch")
+def no_force_push(call, session):          # before the call
+    if "push --force" in call.command:
+        return ("deny", "desk: push a fix on top instead")
+
+@ext.compliance("no-force-push")
+def cases(record, home): ...               # for desk measure: [(ok, what)]
+```
+
+- `@ext.lint(id)` — `fn(home) -> [(path, line, message)]` for `desk lint`.
+- `@ext.on(event)` — text for the model on `SessionStart`, `UserPromptSubmit`,
+  `PreToolUse`, `PostToolUse`; `SessionEnd` has no output. `ev` carries `session`,
+  `call`, `data` (hook input), `state` (`state.notes` for "say it once"), `changed`
+  (files a command changed) and at start `header` (`.row(...)`, `.signal(...)`).
+- `@ext.in_work` — `fn(names, context) -> True | False | None`: is work on a branch
+  alive (say, its tracker status); a busy checkout is not reset, a worktree not swept.
+- `@ext.checkouts` — `fn(session) -> [path]`: the machine's checkouts for the sweep
+  and the `change_directory` hint.
+
+A crashing extension does not break the hook; the error arrives as a line. Shared code
+goes into a package (`ext/mylib/`): only `ext/*.py` load as extensions, and `ext/` is on
+`sys.path`, so `from mylib import x` works. A full example:
+[desk/template/ext/no_force_push.py](desk/template/ext/no_force_push.py).
+
+## Commands
+
+| command | does |
+| --- | --- |
+| `desk why '<command>'` | dry run of the hooks on one call; `--exit-code`: 2 on deny, 1 on ask |
+| `desk lint` | checks `DESK_HOME`: frontmatter, `when`/`guard`/`also`, `desk.yml`, size, links, contexts, place names; with `entry` — the `@`-imports |
+| `desk measure [--days 28]` | from transcripts in `~/.claude/projects`: weight per tier, in how many sessions a fired rule reached the model, compliance of each guard |
+| `desk init [dir]` | the default desk and the wiring steps; `--hooks` prints the `settings.json` block, `--worktree` adds `WorktreeCreate` |
+| `desk doctor` | Python, `DESK_HOME`, rules (and which are `enabled: false`), context here, extensions, hooks wired |
+| `desk import <file>` | CLAUDE.md / AGENTS.md split by `##` into `process/*.md`, tier `import` |
+| `desk export agents-md --out <project>` | the `import` tier as one `AGENTS.md` (Codex, Cursor and others read it) |
+| `desk export claude-rules --out <project>` | `action` rules triggered only by `paths:` as `.claude/rules/*.md` with a `paths:` field |
+
+`--home <dir>` picks another `DESK_HOME`. Export takes portable rules only (outside
+`contexts/`); guards and other triggers have no equivalent there and are skipped.
+
+## Debugging
+
+- `desk why` first: it shows the hook's decision exactly as the hook would make it.
+- What the hook returned shows in the session transcript as `[desk] …` lines.
+- `DESK_NO_DENY=1` — lifts every `deny` (and `gate`); `ask` stays.
+- `DESK_HOOKS_OFF=1` — hooks stay silent (service sessions such as `claude -p`).
+- Delivery state — `$TMPDIR/desk-core/<session>.json` (or `DESK_STATE_DIR`).
+
+## Repository layout
+
+```
+.claude-plugin/        plugin.json and marketplace.json — install as a plugin
+hooks/hooks.json       hooks: SessionStart (slot 0 + 3 file slots), UserPromptSubmit,
+                       PreToolUse, PostToolUse, SessionEnd
+bin/desk               CLI
+bin/desk-hook          entry point of every hook
+desk/                  delivery: frontmatter, home, when, deliver, guards, hook, messages
+                       tools: cli, lint, measure, transcripts, port, ext, checks
+                       extras: header, journal, threads, checkout, worktree, trees
+desk/template/         the default desk for desk init
+pyproject.toml         package desk-core: commands desk and desk-hook (uvx/pipx)
+tests/                 python3 -m unittest; run by .githooks/pre-commit
+docs/decisions.md      what was checked and why it is built this way
+```
+
+## License
+
+MIT — see [LICENSE](LICENSE).
