@@ -22,6 +22,37 @@ command, prompt, skill and tool triggers, guards, contexts and the measurement.
 > Not yet confirmed live: installing as a plugin through the marketplace, SessionEnd.
 > Hook messages and CLI output are in Russian for now; localization is planned.
 
+## What's inside
+
+**Core — rule delivery** (always on):
+
+| Feature | What it does |
+| --- | --- |
+| Tiers and `when:` | a rule is in context always (`import`), from session start (`session`) or at the action (`action`): a Bash command, a git subcommand, a file path, a prompt, a skill, an MCP tool |
+| Portions | a big rule is cut by sections into parts of up to 12 KB, the rest arrives with the next call; a rule is not delivered twice in a session, and again after compaction |
+| `guard:` | `deny` or `ask` before a call: on the command, the commit message and subject, the written text, the paths, the tool input; the reason comes from the same rule file |
+| Contexts (`contexts/`) | work and personal rules apart: a place is chosen by `git remote` or path and has its own triggers, repositories, branches and words that must not leak into shared rules |
+| Extensions (`ext/`) | Python checks where data is not enough, and your own lines on session events |
+
+**Tools:** `desk lint` — rule structure; `desk why` — what fires on a call; `desk measure` —
+whether rules reached the model and guards held, from session transcripts; `desk doctor` —
+are the hooks wired; `desk init` — a desk from the template; `desk import` / `desk export` —
+from `CLAUDE.md` and to `AGENTS.md` / `.claude/rules`.
+
+**Extras** — repository habits. Off until a `desk.yml` key turns them on
+(details [below](#extras-off-by-default)):
+
+| Extra | Turn on | What it does |
+| --- | --- | --- |
+| Session header | `header: true` | a block at session start: place and repository, how many rules were delivered and wait for a trigger, lines of the extras (checkout, sweep, meta); a widget in the desktop app |
+| Session journal | `journal: journal` | on exit a line `date · repository · title` in `journal/YYYY-MM.md`; the last 10 lines at start |
+| Meta signal | `meta_goal: 25` (with the journal) | a header warning when sessions about the desk itself exceed that share of the week |
+| Threads | `threads: true` | `desk lint` checks `threads/*.md` and `now.md`: status, a next-step section when open, a closing line when closed, `now.md` size and freshness |
+| Worktree and docker stack sweep | `sweep: true` | at start: the repository's git worktrees with a verdict — holds work / in work / fresh work / can go; what can go in every known checkout; docker compose — stacks up, stacks and volumes with no worktree; says so when docker does not answer. Removes nothing itself |
+| Checkout to base | place `branches:`; `checkout: {auto: true}` | a line «on base / off base» with the command to fix it; with `auto` the hook moves a clean, pushed checkout to a fresh integration branch — not when another session works in it or the branch's task is in work |
+| Session worktree | `desk init --hooks --worktree`; `worktree: {branch: …}` | the `WorktreeCreate` hook: a tree in `<checkout>/.claude/worktrees/<slug>` from a fresh `origin/<integration>`, a branch by your pattern with no upstream, `.worktreeinclude` copied; on failure a plain `git worktree add` |
+| `change_directory` hint | an extension with `@ext.checkouts` | a command works in another known checkout of the same place — a one-time line «move there» per repository |
+
 ## How it looks
 
 A file `process/git.md` in your desk folder (`DESK_HOME`):
