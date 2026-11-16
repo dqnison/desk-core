@@ -308,9 +308,15 @@ def load_records(root=None, days=28, session=None):
     return [iter_session(f) for f in transcripts(root, since, session)]
 
 
+def measured(records, home):
+    """Records from `measure: since:` on — what the report counts and repeats read."""
+    floor = since_floor(home)
+    return [r for r in records if _since_ok(r, floor)]
+
+
 def report(home, root=None, days=28, examples=3):
     rules = [r for r in homelib.load_rules(home) if r.enabled]
-    records = load_records(root, days)
+    records = measured(load_records(root, days), home)
     floor = since_floor(home)
     lines = [f"Сессий: {len(records)} (окно {days} дн" + (f", замер с {floor}" if floor else "") + ")",
              "", "Вес по ярусам:"]

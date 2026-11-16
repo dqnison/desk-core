@@ -399,7 +399,9 @@ class RuleStartTest(MeasureTest):
         self.assertEqual(trig["commit"], (1, 0))
         got = measure.compliance(home.load_rules(self.home), self.records(), self.home)
         self.assertEqual(got["commit-format"][1:3], (0, 0))     # both commits are in s1
-        self.assertIn("замер с 2026-11-11", measure.report(self.home, self.tmp / "projects", None))
+        self.assertIn("Сессий: 1 (окно None дн, замер с 2026-11-11)",
+                      measure.report(self.home, self.tmp / "projects", None))     # s1 is not counted
+        self.assertEqual(len(measure.measured(self.records(), self.home)), 1)
         self.assertEqual(lint.run(self.home), [])
         self.write({"desk.yml": "measure: 2026-11-11\n"})
         self.assertIn("`measure` is a mapping with `since: YYYY-MM-DD`",
