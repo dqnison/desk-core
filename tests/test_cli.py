@@ -120,6 +120,34 @@ class EnabledAndDoctorTest(HomeCase):
         self.assertEqual(cli.hooks_wired(self.tmp / "none.json", self.tmp / "none.json"), [])
 
 
+class PortTest(HomeCase):
+    files = {"desk.md": "---\ntier: import\n---\n# Entry\nbe brief\n",
+             "process/sql.md": "---\ntier: action\nwhen:\n  - paths: ['**/*.sql']\n---\nuse migrations\n",
+             "process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\ngit\n"}
+
+    def test_import_splits_sections_without_overwriting(self):
+        src = self.tmp / "CLAUDE.md"
+        src.write_text("# Project\nintro\n\n## Code style\nuse tabs\n```\n## not a heading\n```\n\n## Tests\nrun make test\n")
+        code, out = run_cli("import", "--home", str(self.home), str(src))
+        self.assertEqual(code, 0)
+        names = sorted(p.name for p in (self.home / "process").glob("*.md"))
+        self.assertIn("code-style.md", names)
+        self.assertIn("tests.md", names)
+        self.assertIn("claude.md", names)                      # the intro
+        self.assertIn("## not a heading", (self.home / "process/code-style.md").read_text())
+        run_cli("import", "--home", str(self.home), str(src))
+        self.assertTrue((self.home / "process/tests-2.md").exists())
+
+    def test_export_agents_md_and_claude_rules(self):
+        out = self.tmp / "proj"
+        self.assertEqual(run_cli("export", "--home", str(self.home), "agents-md", "--out", str(out))[0], 0)
+        self.assertIn("be brief", (out / "AGENTS.md").read_text())
+        run_cli("export", "--home", str(self.home), "claude-rules", "--out", str(out))
+        rules = sorted(p.name for p in (out / ".claude/rules").glob("*.md"))
+        self.assertEqual(rules, ["sql.md"])                    # git.md has a git trigger: no native form
+        self.assertIn('paths: ["**/*.sql"]', (out / ".claude/rules/sql.md").read_text())
+
+
 class LintTest(HomeCase):
     files = {
         "desk.md": "---\ntier: import\n---\n# D\n[ok](process/a.md#раздел-один) [bad](nope.md) [x](process/a.md#нет)"

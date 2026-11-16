@@ -6,7 +6,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import deliver as dl, ext, guards, hook, home as homelib, lint, measure, when as wh
+from . import port, deliver as dl, ext, guards, hook, home as homelib, lint, measure, when as wh
 
 ROOT = Path(__file__).resolve().parent.parent      # the repository (plugin root) when run from a checkout
 TEMPLATE = Path(__file__).resolve().parent / "template"
@@ -182,6 +182,28 @@ def cmd_init(a):
     return 0
 
 
+def cmd_import(a):
+    home = _home(a)
+    if home is None:
+        return 2
+    written = port.import_file(a.source, home)
+    for p in written:
+        print(f"  {p.relative_to(home)}")
+    print(f"\n{len(written)} правил(а) с ярусом import: в CLAUDE.md — по строке @{home}/process/<имя>.md\n"
+          "на каждое (desk lint сверит). Дальше — дать разделам свой `when:` и ярус action, чтобы\n"
+          "они приезжали к действию, а не висели в каждой сессии.")
+    return 0
+
+
+def cmd_export(a):
+    home = _home(a)
+    if home is None:
+        return 2
+    for p in port.export(home, a.format, a.out or "."):
+        print(f"  {p}")
+    return 0
+
+
 def cmd_doctor(a):
     home = Path(a.home or homelib.desk_home())
     ok = True
@@ -255,10 +277,15 @@ def main(argv=None):
     i.add_argument("--hooks", action="store_true", help="напечатать блок хуков для settings.json")
     i.add_argument("--worktree", action="store_true", help="с --hooks: добавить WorktreeCreate (дерево сессии от интеграционной ветки)")
     sub.add_parser("doctor", help="проверка окружения", parents=[common])
+    im = sub.add_parser("import", help="разложить CLAUDE.md/AGENTS.md на правила по разделам ##", parents=[common])
+    im.add_argument("source", help="файл: CLAUDE.md, AGENTS.md, .cursorrules")
+    ex = sub.add_parser("export", help="правила для инструментов без хука", parents=[common])
+    ex.add_argument("format", choices=["agents-md", "claude-rules"])
+    ex.add_argument("--out", help="каталог проекта (по умолчанию текущий)")
     a = ap.parse_args(argv)
     a.home = getattr(a, "home", None)
     return {"lint": cmd_lint, "measure": cmd_measure, "why": cmd_why, "init": cmd_init,
-            "doctor": cmd_doctor}[a.cmd](a)
+            "doctor": cmd_doctor, "import": cmd_import, "export": cmd_export}[a.cmd](a)
 
 
 if __name__ == "__main__":
