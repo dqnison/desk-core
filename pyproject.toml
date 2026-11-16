@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "desk-core"
+version = "0.2.0"
+description = "Just-in-time rules for Claude Code: deliver markdown rules when a command, file or prompt needs them, guard calls before they run, and measure whether rules reached the model."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["claude-code", "hooks", "rules", "context-engineering", "agents"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Environment :: Console",
+  "Topic :: Software Development",
+]
+
+[project.scripts]
+desk = "desk.cli:main"
+desk-hook = "desk.hook:main"
+
+[tool.setuptools]
+packages = ["desk"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+desk = ["template/**/*", "template/**/.*", "template/.gitignore"]

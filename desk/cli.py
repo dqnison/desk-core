@@ -8,8 +8,8 @@ from pathlib import Path
 
 from . import deliver as dl, ext, guards, hook, home as homelib, lint, measure, when as wh
 
-ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE = ROOT / "template"
+ROOT = Path(__file__).resolve().parent.parent      # the repository (plugin root) when run from a checkout
+TEMPLATE = Path(__file__).resolve().parent / "template"
 SLOTS = 3
 
 
@@ -130,10 +130,19 @@ def registered_slots(settings=None):
         return 1
 
 
+def hook_command():
+    """How settings.json runs the hook: the checkout's bin/desk-hook, else the installed
+    `desk-hook` script, else this Python with `-m desk.hook`."""
+    script = ROOT / "bin" / "desk-hook"
+    if script.exists():
+        return f'python3 "{script}"'
+    return shutil.which("desk-hook") or f'"{sys.executable}" -m desk.hook'
+
+
 def hooks_block(worktree=False):
     """The hooks for settings.json; `worktree` adds WorktreeCreate (opt-in: the session
     worktree from the place's integration branch, desk.worktree)."""
-    entry = f'python3 "{ROOT / "bin" / "desk-hook"}"'
+    entry = hook_command()
     start = [{"type": "command", "command": f"{entry} --slot {i} --slots {SLOTS}", "timeout": 30}
              for i in range(0, SLOTS + 1)]
     one = [{"type": "command", "command": entry, "timeout": 15}]

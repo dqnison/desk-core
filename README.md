@@ -51,7 +51,7 @@ alias desk=~/desk-core/bin/desk
 desk init ~/desk-try
 ```
 
-Создаёт скелет `DESK_HOME` из [template/](template/): правило про git, тесты и нити,
+Создаёт скелет `DESK_HOME` из [desk/template/](desk/template/): правило про git, тесты и нити,
 пример места работы `contexts/example/` и личный контекст.
 
 ```bash
@@ -266,7 +266,7 @@ def cases(record, home):                   # для desk measure: [(ok, что)]
 ломает — ошибка приходит строкой.
 Общий код расширений — пакетом в подпапке (`ext/mylib/`): расширениями грузятся
 только `ext/*.py`, а сама `ext/` стоит в `sys.path`, так что `from mylib import x`.
-Пример — [template/ext/no_force_push.py](template/ext/no_force_push.py).
+Пример — [desk/template/ext/no_force_push.py](desk/template/ext/no_force_push.py).
 
 **События.** Для своего поведения, которое не правило, — `@ext.on(событие)`:
 `SessionStart` (текст идёт в отдельный выхлоп старта вместе со строкой контекста),
@@ -330,9 +330,12 @@ hooks/hooks.json       хуки: SessionStart (слот 0 + 3 слота фай�
                        PreToolUse, PostToolUse, SessionEnd
 bin/desk               CLI
 bin/desk-hook          вход всех хуков
-desk/                  пакет: frontmatter, home, when, deliver, guards, ext, checks,
-                       header, hook, transcripts, measure, lint, messages, cli
-template/              скелет DESK_HOME для desk init
+desk/                  пакет: доставка — frontmatter, home, when, deliver, guards, hook,
+                       messages; инструменты — cli, lint, measure, transcripts, ext, checks;
+                       дополнения (выключены по умолчанию) — header, journal, threads,
+                       checkout, worktree, trees
+desk/template/         скелет DESK_HOME для desk init
+pyproject.toml         пакет desk-core: команды desk и desk-hook (uvx/pipx)
 tests/                 python3 -m unittest; .githooks/pre-commit гоняет их перед коммитом
                        (git config core.hooksPath .githooks): код ядра работает живыми хуками
 docs/decisions.md      что проверено и почему сделано так

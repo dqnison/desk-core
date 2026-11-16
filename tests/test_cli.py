@@ -19,7 +19,7 @@ def run_cli(*argv):
 
 class TemplateTest(HomeCase):
     def test_template_lints_clean(self):
-        self.assertEqual(lint.run(ROOT / "template"), [])
+        self.assertEqual(lint.run(ROOT / "desk/template"), [])
 
     def test_init_copies_template_and_prints_imports(self):
         target = self.tmp / "newdesk"
@@ -40,7 +40,7 @@ class TemplateTest(HomeCase):
             self.assertEqual(len(block[ev][0]["hooks"]), len(plugin[ev][0]["hooks"]))
 
     def test_why_on_template(self):
-        os.environ["DESK_HOME"] = str(ROOT / "template")
+        os.environ["DESK_HOME"] = str(ROOT / "desk/template")
         code, out = run_cli("why", 'git commit -m "Fixed stuff."', "--cwd", str(self.tmp))
         self.assertIn("process/git.md [action] ← git commit", out)
         self.assertIn("deny process/git.md#2", out)
@@ -52,7 +52,7 @@ class TemplateTest(HomeCase):
         self.assertIn("Итог хука (первый вызов в сессии): ничего", out)
 
     def test_why_repo_rule_and_ask(self):
-        os.environ["DESK_HOME"] = str(ROOT / "template")
+        os.environ["DESK_HOME"] = str(ROOT / "desk/template")
         api = git_checkout(self.tmp / "shop-api", "git@git.example.com:acme/shop-api.git")
         code, out = run_cli("why", "billing/pay.py", "--tool", "Edit", "--content", "x", "--cwd", str(api))
         self.assertIn("Контекст: example", out)
@@ -61,7 +61,7 @@ class TemplateTest(HomeCase):
 
 
 class CliArgsTest(HomeCase):
-    files = {"process/git.md": (ROOT / "template/process/git.md").read_text()}
+    files = {"process/git.md": (ROOT / "desk/template/process/git.md").read_text()}
 
     def test_missing_home_is_an_error_and_home_works_after_the_command(self):
         import contextlib as cl
@@ -210,8 +210,8 @@ def rec(type_, **kw):
 
 class MeasureTest(HomeCase):
     files = {
-        "process/git.md": (ROOT / "template/process/git.md").read_text(),
-        "process/threads.md": (ROOT / "template/process/threads.md").read_text(),
+        "process/git.md": (ROOT / "desk/template/process/git.md").read_text(),
+        "process/threads.md": (ROOT / "desk/template/process/threads.md").read_text(),
         "contexts/acme/context.md": "---\nmatch: {default: true}\n---\n",
         "contexts/acme/place-words.txt": "Roadrunner\n",
     }
@@ -332,7 +332,7 @@ class EntryScriptsTest(HomeCase):
     def test_hook_script_end_to_end(self):
         import subprocess
         import sys
-        env = {**os.environ, "DESK_HOME": str(ROOT / "template")}
+        env = {**os.environ, "DESK_HOME": str(ROOT / "desk/template")}
         data = {"hook_event_name": "PreToolUse", "session_id": "e2e", "cwd": str(self.tmp),
                 "tool_name": "Bash", "tool_input": {"command": "git commit -m 'Fixed stuff.'"}}
         p = subprocess.run([sys.executable, str(ROOT / "bin/desk-hook")], input=json.dumps(data),
