@@ -177,7 +177,7 @@ session it reads `~/.claude/CLAUDE.md` and replaces each `@<path>` line with tha
 file's text. So an `import` rule is part of the instructions the session starts
 with, not a hook message: no trigger, portion or hook wiring can miss it. That is
 the guarantee, and the price — it costs every session, so `desk lint` warns when an
-`import` rule is over 8 KB.
+`import` rule is over 8 KB (a cap on that cost, not a portion: no hook cuts it).
 
 1. `desk init <DESK_HOME>` prints an `@` line for every `import` rule. On an existing
    desk it copies nothing and just prints the lines for the rules you have now.
@@ -185,7 +185,7 @@ the guarantee, and the price — it costs every session, so `desk lint` warns wh
 3. Set `entry: '~/.claude/CLAUDE.md'` in `desk.yml`: `desk lint` then checks both ways —
    every `import` rule has its line, and every line points at an `import` rule. A new
    `import` rule without its line is a lint error, not a rule the model silently
-   never sees.
+   never sees. Without `entry` nothing checks the lines.
 
 Other assistants do not read `@` lines: `desk export agents-md` writes the `import`
 tier into one `AGENTS.md`.
