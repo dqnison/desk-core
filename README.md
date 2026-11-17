@@ -1,8 +1,10 @@
 [Документация на русском](docs/index.md)
 
-![desk-core — rules for Claude Code that arrive right on time](docs/banner.en.svg)
+![desk-core — managed context for AI agents: rules that arrive right on time](docs/banner.en.svg)
 
 # desk-core
+
+**Managed context for AI agents — rules that arrive right on time.**
 
 desk-core delivers your markdown rules to Claude Code **at the moment of the action
 that needs them** — a `git commit`, a Bash command, a written path, a prompt, a skill,

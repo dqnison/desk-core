@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "desk-core"
 version = "0.2.0"
-description = "Just-in-time rules for Claude Code: deliver markdown rules when a command, file or prompt needs them, guard calls before they run, and measure whether rules reached the model."
+description = "Managed context for AI agents: rules for Claude Code that arrive right on time, guards before a call runs, and a measure of whether rules reached the model."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

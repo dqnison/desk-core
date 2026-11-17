@@ -1,7 +1,7 @@
 {
   "name": "desk-core",
   "owner": {"name": "desk"},
-  "metadata": {"description": "desk-core: markdown rules for Claude Code delivered at the moment of the action"},
+  "metadata": {"description": "desk-core: managed context for AI agents — rules that arrive right on time"},
   "plugins": [
     {
       "name": "desk",
