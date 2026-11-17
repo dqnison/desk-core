@@ -35,7 +35,7 @@ needed, and stops what must not be missed before it runs.
 | Term | What it is | Why |
 | --- | --- | --- |
 | rule | a markdown file: frontmatter says when to deliver it and what it forbids, the body is text for the model | a rule and its guard live in one file and do not drift apart |
-| tier | the deadline by which a rule must be in context: `import` always, `session` from the start, `action` at its trigger, `link` by link only | every session carries only what is needed always; the rest waits for its moment |
+| tier | the deadline by which a rule must be in context: `import` always (Claude Code itself reads it from `~/.claude/CLAUDE.md`, [how](#how-the-import-tier-reaches-the-model)), `session` from the start, `action` at its trigger (both delivered by the core's hooks), `link` by link only | every session carries only what is needed always; the rest waits for its moment |
 | trigger (`when:`) | the event that brings an `action` rule: a command, a git subcommand, a written path, a prompt, a skill, an MCP tool | the commit rule arrives at `git commit`, not in every session |
 | delivery, portion | a hook puts the rule's text into the model's context, in portions of up to 12 KB and 9k characters | Claude Code hides hook output longer than ~10k characters in a file the model does not see |
 | slot | one of four SessionStart runs: slot 0 — header and lines, slots 1–3 — a portion of `session` files each | one hook output is not enough for a session start |
@@ -148,7 +148,7 @@ uvx --from git+https://github.com/dqnison/desk-core desk init ~/desk   # run wit
 Then set **`DESK_HOME`** in `~/.claude/settings.json` under `env`
 (`{"DESK_HOME": "/Users/<you>/desk"}`; the desktop app does not read your shell
 profile; default `~/desk`), add the **`import` tier** as `@` lines to
-`~/.claude/CLAUDE.md` (a hook cannot deliver it; `desk init <dir>` prints the lines),
+`~/.claude/CLAUDE.md` ([how it reaches the model](#how-the-import-tier-reaches-the-model)),
 and run **`desk doctor`**: Python, `DESK_HOME`, rule counts, the context of the current
 folder, extensions, and whether the hooks are wired (plugin or `settings.json`). Hooks
 wired twice deliver every rule twice.
@@ -169,6 +169,26 @@ instead of sitting in every session.
 | `session` | before the first action of a session | the SessionStart hook, as content |
 | `action` | when its `when:` fires | the hook on a prompt or a tool call |
 | `link` | only if the model opens it by a link | nothing: reference |
+
+### How the `import` tier reaches the model
+
+The core does not deliver `import` rules — Claude Code does. At the start of every
+session it reads `~/.claude/CLAUDE.md` and replaces each `@<path>` line with that
+file's text. So an `import` rule is part of the instructions the session starts
+with, not a hook message: no trigger, portion or hook wiring can miss it. That is
+the guarantee, and the price — it costs every session, so `desk lint` warns when an
+`import` rule is over 8 KB.
+
+1. `desk init <DESK_HOME>` prints an `@` line for every `import` rule. On an existing
+   desk it copies nothing and just prints the lines for the rules you have now.
+2. Paste them into `~/.claude/CLAUDE.md`.
+3. Set `entry: '~/.claude/CLAUDE.md'` in `desk.yml`: `desk lint` then checks both ways —
+   every `import` rule has its line, and every line points at an `import` rule. A new
+   `import` rule without its line is a lint error, not a rule the model silently
+   never sees.
+
+Other assistants do not read `@` lines: `desk export agents-md` writes the `import`
+tier into one `AGENTS.md`.
 
 The limit of `action`: the rule arrives **with the result** of the call that fired it,
 so it no longer affects that call. If a rule must work the first time, use a `guard`
