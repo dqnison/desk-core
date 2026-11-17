@@ -151,6 +151,10 @@ def _check_config(home, f, out, root):
     if m is not None and not (isinstance(m, dict) and set(m) <= {"since"}
                               and re.match(r"\d{4}-\d{2}-\d{2}", str(m.get("since", "")))):
         out.add(home, f, None, "config", "`measure` is a mapping with `since: YYYY-MM-DD`")
+    t = raw.get("threads")
+    if t is not None and not (isinstance(t, bool) or isinstance(t, dict) and set(t) <= {"next", "closed"}
+                              and all(isinstance(v, str) and v for v in t.values())):
+        out.add(home, f, None, "config", "`threads` is true or a mapping `{next: <word>, closed: <word>}`")
     triggers = raw.get("triggers") or {}
     if not isinstance(triggers, dict):
         out.add(home, f, None, "config", "`triggers` is a mapping name → entries")

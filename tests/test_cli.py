@@ -241,7 +241,7 @@ class ExtrasOffTest(HomeCase):
 
 class ThreadsLintTest(HomeCase):
     files = {
-        "desk.yml": "threads: true\n",
+        "desk.yml": "threads: {next: Дальше, closed: Закрыта}\n",
         "now.md": "# Нити\n\n## Ok\n→ [ok.md](threads/ok.md)\n\n## Done\n→ [done.md](threads/done.md)\n",
         "threads/ok.md": "---\nstatus: open\n---\n# Ok\n\n## Дальше\nx\n",
         "threads/lost.md": "---\nstatus: open\n---\n# Lost\n",
@@ -261,6 +261,49 @@ class ThreadsLintTest(HomeCase):
         })
         from desk import threads
         self.assertEqual([p.name for p in threads.open_threads(self.home)], ["lost.md", "ok.md", "a.md"])
+
+
+class ThreadsWordsTest(HomeCase):
+    """English words by default; a desk names its own in `threads: {next, closed}`."""
+    files = {
+        "now.md": "# Threads\n\n## Ok\n→ [ok.md](threads/ok.md)\n",
+        "threads/ok.md": "---\nstatus: open\n---\n# Ok\n\n## Дальше\nx\n",
+        "threads/done.md": "---\nstatus: closed\nclosed: 2026-11-01\n---\n# Done\n\n**Закрыта 2026-11-01.** x\n",
+    }
+
+    def problems(self, cfg):
+        (self.home / "desk.yml").write_text(cfg, encoding="utf-8")
+        return {(rel, check, msg) for rel, _, check, msg in lint.run(self.home)
+                if check in ("threads", "config")}
+
+    def test_default_words_are_english(self):
+        self.assertEqual(self.problems("threads: true\n"), {
+            ("threads/ok.md", "threads", "у открытой нити нет раздела «## Next» (следующего действия)"),
+            ("threads/done.md", "threads", "закрытая нить без строки «**Closed <дата>.**»"),
+        })
+
+    def test_own_words(self):
+        self.assertEqual(self.problems("threads: {next: Дальше, closed: Закрыта}\n"), set())
+
+    def test_heading_must_be_a_section(self):
+        (self.home / "threads/ok.md").write_text("---\nstatus: open\n---\n# Ok\n\n### Дальше и ещё\n",
+                                                 encoding="utf-8")
+        self.assertEqual({m for _, c, m in self.problems("threads: {next: Дальше, closed: Закрыта}\n")},
+                         {"у открытой нити нет раздела «## Дальше» (следующего действия)"})
+
+    def test_bad_config(self):
+        self.assertIn("config", {c for _, c, _ in self.problems("threads: {next: Дальше, done: x}\n")})
+        self.assertNotIn("config", {c for _, c, _ in self.problems("threads: false\n")})
+
+
+class TemplateThreadsTest(HomeCase):
+    """The default desk delivers its thread index at session start."""
+
+    def test_now_md_is_a_session_rule(self):
+        from desk import frontmatter
+        tpl = ROOT / "desk" / "template"
+        self.assertEqual(frontmatter.read(tpl / "now.md")[0].get("tier"), "session")
+        self.assertIn("## Next", (tpl / "process" / "threads.md").read_text(encoding="utf-8"))
 
 
 def rec(type_, **kw):
