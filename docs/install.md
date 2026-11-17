@@ -2,29 +2,31 @@
 
 # Подключить насовсем
 
-**CLI** — любым способом (`<repo>` — путь к чекауту или `git+<url>`):
+Репозиторий — [github.com/dqnison/desk-core](https://github.com/dqnison/desk-core).
+
+**CLI** — любым способом:
 
 ```bash
-uvx --from <repo> desk init ~/desk     # без установки
+uv tool install git+https://github.com/dqnison/desk-core     # или pipx install git+https://…
 ```
 
 ```bash
-uv tool install <repo>                 # или pipx install <repo>
+uvx --from git+https://github.com/dqnison/desk-core desk init ~/desk   # без установки
 ```
 
-Либо прямо из чекаута: `<repo>/bin/desk`.
+Либо из клона: `~/desk-core/bin/desk`.
 
-1. **Хуки.** Плагином из локального каталога (маркетплейс — `.claude-plugin/marketplace.json`):
+1. **Хуки.** Плагином — репозиторий сам себе маркетплейс (`.claude-plugin/marketplace.json`):
 
    ```bash
-   claude plugin marketplace add ~/desk-core
+   claude plugin marketplace add dqnison/desk-core
    ```
 
    ```bash
    claude plugin install desk@desk-core
    ```
 
-   На одну сессию — `claude --plugin-dir <repo>`. Либо без плагина: `desk init --hooks`
+   На одну сессию из клона — `claude --plugin-dir ~/desk-core`. Либо без плагина: `desk init --hooks`
    печатает блок `hooks` для `~/.claude/settings.json`, `--worktree` добавляет хук
    `WorktreeCreate` (см. «Дополнения»). Запускать из чекаута или постоянной установки
    (`uv tool`/`pipx`): под `uvx` в блок попадает путь в кэш uv.

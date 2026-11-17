@@ -1,6 +1,7 @@
 {
   "name": "desk-core",
   "owner": {"name": "desk"},
+  "metadata": {"description": "desk-core: markdown rules for Claude Code delivered at the moment of the action"},
   "plugins": [
     {
       "name": "desk",

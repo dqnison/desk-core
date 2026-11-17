@@ -2,5 +2,8 @@
   "name": "desk",
   "version": "0.2.0",
   "description": "Delivers your rules to the assistant by tiers and triggers declared in the rules themselves; guards deny or ask before a call.",
-  "author": {"name": "desk"}
+  "author": {"name": "desk"},
+  "homepage": "https://deskcore.pages.dev",
+  "repository": "https://github.com/dqnison/desk-core",
+  "license": "MIT"
 }

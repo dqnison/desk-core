@@ -30,6 +30,10 @@ guard:
 ## Попробовать (5 минут, ничего не ставя)
 
 ```bash
+git clone https://github.com/dqnison/desk-core ~/desk-core
+```
+
+```bash
 alias desk=~/desk-core/bin/desk
 ```
 

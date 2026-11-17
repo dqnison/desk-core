@@ -18,6 +18,10 @@ classifiers = [
   "Topic :: Software Development",
 ]
 
+[project.urls]
+Homepage = "https://deskcore.pages.dev"
+Repository = "https://github.com/dqnison/desk-core"
+
 [project.scripts]
 desk = "desk.cli:main"
 desk-hook = "desk.hook:main"

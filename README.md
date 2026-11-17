@@ -21,7 +21,8 @@ command, prompt, skill and tool triggers, guards, contexts and the measurement.
 >
 > **Status.** The author's own desk runs on the core, hooks wired in `settings.json`.
 > Confirmed live: session start, delivery on prompts and calls, `deny` before a call.
-> Not yet confirmed live: installing as a plugin through the marketplace, SessionEnd.
+> Also confirmed: install from GitHub — the CLI with `uv`, the hooks as a plugin through
+> the marketplace. Not yet confirmed live: SessionEnd.
 > Hook messages and CLI output are in Russian for now; localization is planned.
 
 **Why.** One big `CLAUDE.md` loads into every session whole: the longer it grows,
@@ -104,14 +105,15 @@ not delivered again.
 
 ## Try it in 5 minutes
 
-No install needed — a checkout of this repository is enough (`<repo>` below):
+No install needed — a clone of this repository is enough:
 
 ```bash
-alias desk=<repo>/bin/desk
+git clone https://github.com/dqnison/desk-core ~/desk-core
+alias desk=~/desk-core/bin/desk
 desk init ~/desk-try                       # the default desk from desk/template/
 export DESK_HOME=~/desk-try
 desk why "git commit -m 'Fixed stuff.'"    # dry run: fires process/git.md, deny commit-format
-claude --plugin-dir <repo>                 # a session with the hooks, this run only
+claude --plugin-dir ~/desk-core            # a session with the hooks, this run only
 ```
 
 The default desk: rules for git, tests, a task loop and threads, a safety pack, an
@@ -125,15 +127,19 @@ on ask). In the `--plugin-dir` session ask for a commit "Fixed stuff." — it is
 
 **CLI** — any of:
 ```bash
-uvx --from <repo> desk init ~/desk     # run without installing; <repo> = a path or git+<url>
-uv tool install <repo>                 # or: pipx install <repo>
-<repo>/bin/desk init ~/desk            # straight from a checkout
+uv tool install git+https://github.com/dqnison/desk-core       # or: pipx install git+https://…
+uvx --from git+https://github.com/dqnison/desk-core desk init ~/desk   # run without installing
+~/desk-core/bin/desk init ~/desk                                 # straight from a clone
 ```
 
 **Hooks** — one of:
-- As a Claude Code plugin from a checkout (local marketplace in
-  `.claude-plugin/marketplace.json`): `claude plugin marketplace add <repo>`, then
-  `claude plugin install desk@desk-core`. Or `claude --plugin-dir <repo>` for one session.
+- As a Claude Code plugin — the repository is its own marketplace
+  (`.claude-plugin/marketplace.json`):
+  ```bash
+  claude plugin marketplace add dqnison/desk-core
+  claude plugin install desk@desk-core
+  ```
+  Or `claude --plugin-dir ~/desk-core` from a clone, for one session.
 - Without the plugin: `desk init --hooks` prints a `hooks` block to paste into
   `~/.claude/settings.json`; `desk init --hooks --worktree` adds the `WorktreeCreate`
   hook (see Extras). Run it from a checkout or a persistent install (`uv tool` /
