@@ -1,43 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="desk-core — управляемый контекст для AI-агентов: правила, которые приходят вовремя">
   <defs>
     <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
-      <circle cx="1" cy="1" r="1" fill="#ffffff" fill-opacity="0.07"/>
+      <circle cx="1" cy="1" r="1" fill="#ffffff" fill-opacity="0.06"/>
     </pattern>
   </defs>
-  <rect width="1200" height="320" rx="24" fill="#121410"/>
+  <rect width="1200" height="320" rx="24" fill="#1c1c1e"/>
   <rect width="1200" height="320" rx="24" fill="url(#dots)"/>
 
-  <!-- rule card with a hard shadow -->
+  <!-- rule card -->
   <g transform="translate(84 66)">
-    <rect x="8" y="8" width="168" height="190" rx="10" fill="#d4ff3a"/>
-    <rect x="0" y="0" width="168" height="190" rx="10" fill="#1b1e17" stroke="#d4ff3a" stroke-width="2"/>
-    <g font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="14">
-      <text x="18" y="34" fill="#6b7062">---</text>
-      <text x="18" y="56" fill="#d4ff3a">when:</text>
-      <text x="30" y="76" fill="#e8eadf">git: write</text>
-      <text x="18" y="98" fill="#d4ff3a">guard:</text>
-      <text x="30" y="118" fill="#e8eadf">deny …</text>
-      <text x="18" y="140" fill="#6b7062">---</text>
+    <rect x="0" y="0" width="168" height="190" rx="12" fill="#232326" stroke="#34343a"/>
+    <rect x="0.5" y="0.5" width="167" height="189" rx="11.5" fill="none" stroke="#0a84ff" stroke-opacity="0.35"/>
+    <g font-family="SFMono-Regular, ui-monospace, Menlo, JetBrains Mono, Consolas, monospace" font-size="14">
+      <text x="18" y="34" fill="#7c7c82">---</text>
+      <text x="18" y="56" fill="#0a84ff">when:</text>
+      <text x="30" y="76" fill="#f5f5f7">git: write</text>
+      <text x="18" y="98" fill="#0a84ff">guard:</text>
+      <text x="30" y="118" fill="#f5f5f7">deny …</text>
+      <text x="18" y="140" fill="#7c7c82">---</text>
     </g>
-    <rect x="18" y="154" width="104" height="6" rx="3" fill="#33372c"/>
-    <rect x="18" y="168" width="72" height="6" rx="3" fill="#33372c"/>
+    <rect x="18" y="154" width="104" height="6" rx="3" fill="#34343a"/>
+    <rect x="18" y="168" width="72" height="6" rx="3" fill="#34343a"/>
   </g>
 
   <!-- arrow: the rule arrives at the action -->
-  <g fill="none" stroke="#d4ff3a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M286 160 H 334"/>
-    <path d="M322 148 L 336 160 L 322 172"/>
+  <g fill="none" stroke="#0a84ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M280 160 H 330"/>
+    <path d="M318 148 L 332 160 L 318 172"/>
   </g>
 
-  <!-- title and slogan -->
-  <text x="362" y="128" font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="72" font-weight="700" fill="#f2f4ea" letter-spacing="-1">desk<tspan fill="#d4ff3a">-core</tspan></text>
-  <text x="364" y="176" font-family="-apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="#f2f4ea">Управляемый контекст для AI-агентов</text>
-  <text x="364" y="210" font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#a3a897"><tspan fill="#d4ff3a">›</tspan> правила, которые приходят вовремя</text>
+  <!-- brand mark, title and slogan -->
+  <rect x="362" y="66" width="64" height="64" rx="16" fill="#0a84ff"/>
+  <text x="394" y="106" text-anchor="middle" font-family="SFMono-Regular, ui-monospace, Menlo, JetBrains Mono, Consolas, monospace" font-size="24" font-weight="700" fill="#ffffff">&lt;/&gt;</text>
+  <text x="446" y="122" font-family="SFMono-Regular, ui-monospace, Menlo, JetBrains Mono, Consolas, monospace" font-size="64" font-weight="700" fill="#f5f5f7" letter-spacing="-1">desk<tspan fill="#7c7c82">-core</tspan></text>
+  <text x="364" y="178" font-family="-apple-system, Segoe UI, Inter, Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="#f5f5f7">Управляемый контекст для AI-агентов</text>
+  <text x="364" y="212" font-family="SFMono-Regular, ui-monospace, Menlo, JetBrains Mono, Consolas, monospace" font-size="19" fill="#a1a1a6"><tspan fill="#0a84ff">›</tspan> правила, которые приходят вовремя</text>
 
   <!-- chips -->
-  <g font-family="JetBrains Mono, SFMono-Regular, Menlo, Consolas, monospace" font-size="16">
-    <rect x="364" y="236" width="180" height="34" rx="6" fill="#d4ff3a"/><text x="377" y="258" fill="#121410">when: git commit</text>
-    <rect x="556" y="236" width="189" height="34" rx="6" fill="none" stroke="#d4ff3a" stroke-width="1.5"/><text x="569" y="258" fill="#d4ff3a">guard: deny / ask</text>
-    <rect x="757" y="236" width="180" height="34" rx="6" fill="none" stroke="#6b7062" stroke-width="1.5"/><text x="770" y="258" fill="#c9cdbd">measure: дошло ✓</text>
+  <g font-family="SFMono-Regular, ui-monospace, Menlo, JetBrains Mono, Consolas, monospace" font-size="16">
+    <rect x="364" y="236" width="180" height="34" rx="6" fill="#0a84ff" fill-opacity="0.14" stroke="#0a84ff" stroke-opacity="0.35"/><text x="377" y="258" fill="#0a84ff">when: git commit</text>
+    <rect x="556" y="236" width="189" height="34" rx="6" fill="#ff453a" fill-opacity="0.12" stroke="#ff453a" stroke-opacity="0.4"/><text x="569" y="258" fill="#ff453a">guard: deny / ask</text>
+    <rect x="757" y="236" width="180" height="34" rx="6" fill="#30d158" fill-opacity="0.12" stroke="#30d158" stroke-opacity="0.4"/><text x="770" y="258" fill="#30d158">measure: дошло ✓</text>
   </g>
 </svg>
