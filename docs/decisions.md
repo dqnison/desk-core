@@ -63,9 +63,12 @@ hidden by the harness in a persisted file.
   become remarks ("done without confirmation").
 - Hook state lives in `$TMPDIR/desk-core/` (or `DESK_STATE_DIR`), apart from the
   old `desk-hook/`, so both bindings can run side by side.
-- Not carried over (policy, stays private): worktree and docker sweep, tracker and
-  MR checks, CLI-skill checks, desktop header, SessionEnd journal, Obsidian canvas,
-  the interfaces dictionary, link-map/hub/threads/freshness lint checks.
+- Not carried over at the time (policy, stays private): worktree and docker sweep,
+  tracker and MR checks, CLI-skill checks, desktop header, SessionEnd journal,
+  Obsidian canvas, the interfaces dictionary, link-map/hub/threads/freshness lint
+  checks. **Later reversed** for the sweep, header, journal, interfaces and the
+  hub/threads/freshness checks: they moved into the core as extras
+  ([extras.md](extras.md)); tracker, MR and CLI-skill checks stay private.
 
 ## Changes driven by the replay (step 5)
 

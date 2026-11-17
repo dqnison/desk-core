@@ -38,7 +38,7 @@ desk init ~/desk-try
 ```
 
 Создаёт скелет `DESK_HOME` из [desk/template/](../desk/template/): правила про git, тесты,
-цикл задачи и нити, стартовый набор запретов `process/safety.md`, пример места работы
+цикл задачи и нити ([что это](concepts.md#дополнения)), стартовый набор запретов `process/safety.md`, пример места работы
 `contexts/example/` (Acme, `git.example.com`, репозиторий `shop-api`) и личный контекст.
 Правила шаблона — на английском.
 
