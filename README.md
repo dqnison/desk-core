@@ -24,6 +24,26 @@ command, prompt, skill and tool triggers, guards, contexts and the measurement.
 > Not yet confirmed live: installing as a plugin through the marketplace, SessionEnd.
 > Hook messages and CLI output are in Russian for now; localization is planned.
 
+**Why.** One big `CLAUDE.md` loads into every session whole: the longer it grows,
+the less attention each rule gets, and the commit rule drowns among the rules about
+deploys and logs. desk-core keeps rules as separate files, delivers each when it is
+needed, and stops what must not be missed before it runs.
+
+## Concepts
+
+| Term | What it is | Why |
+| --- | --- | --- |
+| rule | a markdown file: frontmatter says when to deliver it and what it forbids, the body is text for the model | a rule and its guard live in one file and do not drift apart |
+| tier | the deadline by which a rule must be in context: `import` always, `session` from the start, `action` at its trigger, `link` by link only | every session carries only what is needed always; the rest waits for its moment |
+| trigger (`when:`) | the event that brings an `action` rule: a command, a git subcommand, a written path, a prompt, a skill, an MCP tool | the commit rule arrives at `git commit`, not in every session |
+| delivery, portion | a hook puts the rule's text into the model's context, in portions of up to 12 KB | Claude Code hides hook output longer than ~10k characters in a file the model does not see |
+| slot | one of four SessionStart runs: slot 0 — header and lines, slots 1–3 — a portion of `session` files each | one hook output is not enough for a session start |
+| guard | a check that denies a call or asks the human before it runs | an `action` rule arrives with the call's result and cannot change that call; a guard can |
+| context, place | a folder `contexts/<name>/` with its own rules, chosen by `git remote` or path; a place is the context of a workplace | work rules stay apart from shared ones and leave with the job |
+| portable layer | rules outside `contexts/`, with no names of a place | they can move to the next job or be published |
+| reach | of the sessions where a rule's trigger fired, the share where its text was in context | a rule that does not arrive does not work |
+| thread | what lasts longer than a session: an intention, an inquiry without a decision — a file plus a line in `now.md`, a `session` rule | what was said in one chat is known in the next |
+
 ## What's inside
 
 **Core — rule delivery** (always on):
@@ -31,9 +51,9 @@ command, prompt, skill and tool triggers, guards, contexts and the measurement.
 | Feature | What it does |
 | --- | --- |
 | Tiers and `when:` | a rule is in context always (`import`), from session start (`session`) or at the action (`action`): a Bash command, a git subcommand, a file path, a prompt, a skill, an MCP tool |
-| Portions | a big rule is cut by sections into parts of up to 12 KB, the rest arrives with the next call; a rule is not delivered twice in a session, and again after compaction |
+| Portions | Claude Code hides hook output longer than ~10k characters from the model, so a big rule is cut by sections into parts of up to 12 KB, the rest arrives with the next call; a rule is not delivered twice in a session, and again after compaction |
 | `guard:` | `deny` or `ask` before a call: on the command, the commit message and subject, the written text, the paths, the tool input; the reason comes from the same rule file |
-| Contexts (`contexts/`) | work and personal rules apart: a place is chosen by `git remote` or path and has its own triggers, repositories, branches and words that must not leak into shared rules |
+| Contexts (`contexts/`) | work and personal rules apart: a context is chosen by `git remote` or path; a workplace has its own triggers, repositories and branches, and its names do not leak into portable rules |
 | Extensions (`ext/`) | Python checks where data is not enough, and your own lines on session events |
 
 **Tools:** `desk lint` — rule structure; `desk why` — what fires on a call; `desk measure` —
@@ -41,19 +61,19 @@ whether rules reached the model and guards held, from session transcripts; `desk
 are the hooks wired; `desk init` — a desk from the template; `desk import` / `desk export` —
 from `CLAUDE.md` and to `AGENTS.md` / `.claude/rules`.
 
-**Extras** — repository habits. Off until a `desk.yml` key turns them on
-(details [below](#extras-off-by-default)):
+**Extras** — habits around sessions and repositories. Off until a `desk.yml` key turns
+them on (details [below](#extras-off-by-default)):
 
-| Extra | Turn on | What it does |
-| --- | --- | --- |
-| Session header | `header: true` | a block at session start: place and repository, how many rules were delivered and wait for a trigger, lines of the extras (checkout, sweep, meta); a widget in the desktop app |
-| Session journal | `journal: journal` | on exit a line `date · repository · title` in `journal/YYYY-MM.md`; the last 10 lines at start |
-| Meta signal | `meta_goal: 25` (with the journal) | a header warning when sessions about the desk itself exceed that share of the week |
-| Threads | `threads: true` | `desk lint` checks `threads/*.md` and `now.md`: status, a next-step section when open, a closing line when closed, `now.md` size and freshness |
-| Worktree and docker stack sweep | `sweep: true` | at start: the repository's git worktrees with a verdict — holds work / in work / fresh work / can go; what can go in every known checkout; docker compose — stacks up, stacks and volumes with no worktree; says so when docker does not answer. Removes nothing itself |
-| Checkout to base | place `branches:`; `checkout: {auto: true}` | a line «on base / off base» with the command to fix it; with `auto` the hook moves a clean, pushed checkout to a fresh integration branch — not when another session works in it or the branch's task is in work |
-| Session worktree | `desk init --hooks --worktree`; `worktree: {branch: …}` | the `WorktreeCreate` hook: a tree in `<checkout>/.claude/worktrees/<slug>` from a fresh `origin/<integration>`, a branch by your pattern with no upstream, `.worktreeinclude` copied; on failure a plain `git worktree add` |
-| `change_directory` hint | an extension with `@ext.checkouts` | a command works in another known checkout of the same place — a one-time line «move there» per repository |
+| Extra | Turn on | Why | What it does |
+| --- | --- | --- | --- |
+| Session header | `header: true` | you see which context a session started in and what it carries | a block at session start: place and repository, how many rules were delivered and wait for a trigger, lines of the extras (checkout, sweep, meta); a widget in the desktop app |
+| Session journal | `journal: journal` | a new session sees what the last ones did | on exit a line `date · repository · title` in `journal/YYYY-MM.md`; the last 10 lines at start |
+| Meta signal | `meta_goal: 25` (with the journal) | tuning the rules must not eat the work | a header warning when sessions about the desk itself exceed that share of the week |
+| Threads | `threads: true` or `threads: {next: …, closed: …}` | what was said in one chat is known in the next — [below](#threads) | `desk lint` checks thread files and `now.md`: status, a next-step section when open, a closing line when closed, `now.md` size and freshness |
+| Worktree and docker stack sweep | `sweep: true` | worktrees and stacks pile up and hold gigabytes; the sweep says what can go and what cannot | at start: the repository's git worktrees with a verdict — holds work (the only copy is here) / in work (its task is open) / fresh work (touched lately) / can go; what can go in every known checkout; docker compose — stacks up, stacks and volumes with no worktree; says so when docker does not answer. Removes nothing itself |
+| Checkout to base | place `branches:`; `checkout: {auto: true}` | new work starts from a fresh integration branch, and an idle checkout does not pose as work | a line «on base / off base» with the command to fix it; with `auto` the hook moves a clean, pushed checkout to a fresh integration branch — not when another session works in it or the branch's task is in work |
+| Session worktree | `desk init --hooks --worktree`; `worktree: {branch: …}` | parallel sessions do not get in each other's way in one folder | the `WorktreeCreate` hook: a tree in `<checkout>/.claude/worktrees/<slug>` from a fresh `origin/<integration>`, a branch by your pattern with no upstream, `.worktreeinclude` copied; on failure a plain `git worktree add` |
+| `change_directory` hint | an extension with `@ext.checkouts` | a Claude desktop session works where its file panel looks | a command went to another known checkout of the same place — a one-time line «move there» (the desktop's `change_directory` tool) per repository |
 
 ## How it looks
 
@@ -149,9 +169,14 @@ so it no longer affects that call. If a rule must work the first time, use a `gu
 (decided before the call), `gate: true` (below) or a `prompt:` trigger (the rule
 arrives with the prompt, before any tool).
 
-A hook returns at most ~12 KB at once (Claude Code hides longer output in a file with a
-preview). A larger rule is cut by `##` sections into "part 1 of 3"; the rest comes with
-the next call. `clear` and `compact` reset what was delivered — rules arrive again.
+Claude Code hides hook output longer than ~10k characters in a file with a preview,
+and the model does not see it. So a larger rule is cut by `##` sections into portions
+of up to 12 KB ("part 1 of 3"); the rest comes with the next call. The core remembers
+what it delivered in the session and does not deliver it twice; `clear` and `compact`
+empty the context — rules arrive again.
+
+`since: <date>` in the frontmatter — the day `desk measure` counts the rule's reach
+from; set it when a rule is rewritten and older sessions no longer measure it.
 
 `enabled: false` in the frontmatter switches a rule off without deleting it: it is not
 delivered and its guards do not apply; `desk lint` still checks it.
@@ -266,6 +291,14 @@ require_tier: ['process/*.md']        # desk lint: these files must have a tier
 interfaces: {local: 'how to run', …}  # desk lint: allowed file names in projects/<repo>/
 ```
 
+- **`portable`** — rules not tied to a workplace: they can move to the next job or be
+  published, so the place's names (`place-words.txt`) are kept out of them.
+- **`interfaces`** — one layout for every repository: `contexts/<place>/projects/<repo>/local.md`
+  always means "how to run it locally", `tests.md` — "how to run the tests", and so on.
+  A shared rule points at "the project's `local.md`" without knowing the repository;
+  so only names from the dictionary are allowed there, and a file of one name arrives
+  at one tier everywhere.
+
 `contexts/<place>/desk.yml` defines triggers of the place under the same names: they
 add to the root ones while the place is active. A portable rule says `when: [tracker]`;
 the place says which CLI or API is its tracker. Where a place does not define the
@@ -280,7 +313,7 @@ and never changes git state. Each is switched on by a key in the root `desk.yml`
 header: true                      # session header as the first block (a widget in the desktop app)
 journal: journal                  # session journal: a line on exit, the tail at start
 meta_goal: 25                     # with journal: header signal when > 25 % of 7-day sessions ran in DESK_HOME
-threads: true                     # desk lint: threads/ files and the now.md lists
+threads: true                     # threads: desk lint checks thread files and now.md
 sweep: true                       # summary of worktrees and docker stacks at start
 checkout: {auto: true}            # an idle checkout (clean, pushed) is brought to its base by the hook
 worktree: {branch: 'wip/{name}'}  # branch of the session worktree; hook: desk init --hooks --worktree
@@ -291,6 +324,29 @@ develop, production: main, repos: {shop-api: {integration: dev}}}`. With them, s
 start says whether the checkout is on its base and which command brings it there
 (read-only unless `checkout: {auto: true}`; the branch is kept). The session worktree
 is created from the integration branch.
+
+### Threads
+
+A thread is what lasts longer than one session: an intention ("let's get back to it
+after the release"), an inquiry that ended without a decision, an agreement for
+later. Without threads every session starts from zero.
+
+- **What it looks like.** A file `threads/<slug>.md` (about the desk at the root, about
+  a place under `contexts/<place>/threads/`) with `status: open` and a next-step
+  section, and a line in the `now.md` next to it: a title, the state, a link.
+- **How it reaches a session.** `now.md` is a `session` rule: every session starts with
+  the list of open threads, so `now.md` stays under 4 KB.
+- **Who keeps them.** The assistant, in the session where it came up, by the template's
+  `process/threads.md`; a thread that ended in a decision gets a closing line.
+- **What `threads: true` checks.** An open thread is listed in `now.md` and has a next
+  step; a closed one has a date and an outcome; `now.md` is not too big and not
+  forgotten. The words default to `## Next` and `**Closed <date>.**`; your own:
+  `threads: {next: Дальше, closed: Закрыта}`.
+
+Example: "let's get back to the cache after the release" comes up. The assistant opens
+`threads/cache.md` with "Next: measure cache misses after the release" and a line in
+`now.md`. A week later a new session starts with that line in context and brings it up
+itself.
 
 ## Extensions: checks in code
 
