@@ -137,3 +137,13 @@ branches); `touches_home` treats it as reading.
 
 The session header moved into the core (`desk/header.py`); extensions add rows
 and signals. The core has its own pre-commit running the tests.
+
+## Portion budget in characters too (17.11)
+
+The harness limit is in characters (~10k), the budget was in bytes (12 KB). The
+author's desk is Cyrillic — 12 KB is ~6k characters, so it never showed: in 364 hook
+outputs from the transcripts, those up to 8.6k characters arrived whole, the one
+hidden was 23 KB. An English desk is ASCII: a 12 KB portion is 12k characters and
+would be hidden. A text now costs `max(bytes, characters × 12 KB / 9000)`
+(`deliver.cost`): Cyrillic portions stay as they were, ASCII ones stop at 9k
+characters, leaving room for the labels and lines the hook adds.

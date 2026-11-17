@@ -6,14 +6,17 @@ from desk import deliver as dl, hook, home
 from tests.helpers import HomeCase, git_checkout
 
 
-def big(n_sections, size):
-    return "".join(f"## S{i}\n" + ("x" * size) + "\n" for i in range(n_sections))
+def big(n_sections, size, ch="я"):
+    """Sections of `size` bytes: Cyrillic by default, so the byte budget binds."""
+    n = size // len(ch.encode("utf-8"))
+    return "".join(f"## S{i}\n" + (ch * n) + "\n" for i in range(n_sections))
 
 
 class UnitsTest(HomeCase):
     files = {
         "process/small.md": "---\ntier: action\n---\n# Small\ntext\n",
         "process/big.md": "---\ntier: action\n---\n# Big\n" + big(4, 5000),
+        "process/english.md": "---\ntier: action\n---\n# English\n" + big(2, 5600, "x"),
         "process/huge-section.md": "---\ntier: action\n---\n## One\n" + ("line\n" * 4000),
     }
 
@@ -31,6 +34,18 @@ class UnitsTest(HomeCase):
         self.assertEqual(u[1].label, "process/big.md (часть 2 из 2)")
         self.assertTrue(all(x.size <= dl.BUDGET for x in u))
         self.assertTrue(u[1].text.startswith("## S"))
+
+    def test_ascii_rule_cut_by_characters(self):
+        # 11 KB of ASCII fits the byte budget but not the harness limit in characters
+        r = self.rule("process/english.md")
+        self.assertLess(len(r.body().encode("utf-8")), dl.BUDGET)
+        u = dl.units(r)
+        self.assertEqual(len(u), 2)
+        self.assertTrue(all(len(x.text) <= dl.CHAR_BUDGET for x in u))
+
+    def test_cyrillic_keeps_byte_portions(self):
+        self.assertEqual(dl.cost("я" * 5000), 10000)            # bytes bind
+        self.assertEqual(dl.cost("x" * dl.CHAR_BUDGET), dl.BUDGET)   # characters bind
 
     def test_section_larger_than_budget_cut_by_lines(self):
         u = dl.units(self.rule("process/huge-section.md"))

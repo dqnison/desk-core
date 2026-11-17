@@ -36,7 +36,7 @@ needed, and stops what must not be missed before it runs.
 | rule | a markdown file: frontmatter says when to deliver it and what it forbids, the body is text for the model | a rule and its guard live in one file and do not drift apart |
 | tier | the deadline by which a rule must be in context: `import` always, `session` from the start, `action` at its trigger, `link` by link only | every session carries only what is needed always; the rest waits for its moment |
 | trigger (`when:`) | the event that brings an `action` rule: a command, a git subcommand, a written path, a prompt, a skill, an MCP tool | the commit rule arrives at `git commit`, not in every session |
-| delivery, portion | a hook puts the rule's text into the model's context, in portions of up to 12 KB | Claude Code hides hook output longer than ~10k characters in a file the model does not see |
+| delivery, portion | a hook puts the rule's text into the model's context, in portions of up to 12 KB and 9k characters | Claude Code hides hook output longer than ~10k characters in a file the model does not see |
 | slot | one of four SessionStart runs: slot 0 — header and lines, slots 1–3 — a portion of `session` files each | one hook output is not enough for a session start |
 | guard | a check that denies a call or asks the human before it runs | an `action` rule arrives with the call's result and cannot change that call; a guard can |
 | context, place | a folder `contexts/<name>/` with its own rules, chosen by `git remote` or path; a place is the context of a workplace | work rules stay apart from shared ones and leave with the job |
@@ -51,7 +51,7 @@ needed, and stops what must not be missed before it runs.
 | Feature | What it does |
 | --- | --- |
 | Tiers and `when:` | a rule is in context always (`import`), from session start (`session`) or at the action (`action`): a Bash command, a git subcommand, a file path, a prompt, a skill, an MCP tool |
-| Portions | Claude Code hides hook output longer than ~10k characters from the model, so a big rule is cut by sections into parts of up to 12 KB, the rest arrives with the next call; a rule is delivered once per session, and once more after compaction empties the context |
+| Portions | Claude Code hides hook output longer than ~10k characters from the model, so a big rule is cut by sections into parts of up to 12 KB and 9k characters, the rest arrives with the next call; a rule is delivered once per session, and once more after compaction empties the context |
 | `guard:` | `deny` or `ask` before a call: on the command, the commit message and subject, the written text, the paths, the tool input; the reason comes from the same rule file |
 | Contexts (`contexts/`) | work and personal rules apart: a context is chosen by `git remote` or path; a workplace has its own triggers, repositories and branches, and its names do not leak into portable rules |
 | Extensions (`ext/`) | Python checks where data is not enough, and your own lines on session events |
@@ -171,7 +171,7 @@ arrives with the prompt, before any tool).
 
 Claude Code hides hook output longer than ~10k characters in a file with a preview,
 and the model does not see it. So a larger rule is cut by `##` sections into portions
-of up to 12 KB ("part 1 of 3"); the rest comes with the next call. The core remembers
+of up to 12 KB and 9k characters ("part 1 of 3"); the rest comes with the next call. The core remembers
 what it delivered in the session and does not deliver it twice; `clear` and `compact`
 empty the context — rules arrive again.
 

@@ -79,10 +79,11 @@ def check_rule(rule, home, out, brought=frozenset()):
     for i, g in enumerate(frontmatter.as_list(rule.fm.get("guard")), 1):
         for p in guards.lint_guard(g):
             out.add(home, rule.path, _fm_line(text, "guard"), "guard", f"entry {i}: {p}")
-    size = len(rule.body().encode("utf-8"))
-    if rule.tier in ("action", "session") and size > dl.BUDGET:
+    body = rule.body()
+    if rule.tier in ("action", "session") and dl.cost(body) > dl.BUDGET:
         out.add(home, rule.path, None, "budget",
-                f"{rule.tier} body {dl.kb(size)} > portion {dl.kb(dl.BUDGET)}: it arrives in parts"
+                f"{rule.tier} body {dl.kb(len(body.encode('utf-8')))}, {len(body)} chars > portion "
+                f"{dl.kb(dl.BUDGET)} / {dl.CHAR_BUDGET} chars: it arrives in parts"
                 + (" across start slots, the rest may not fit" if rule.tier == "session" else ""))
     if rule.tier == "import" and len(text.encode("utf-8")) > IMPORT_MAX:
         out.add(home, rule.path, None, "budget", f"import rule > {dl.kb(IMPORT_MAX)}: it costs every session")

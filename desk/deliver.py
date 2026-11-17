@@ -2,7 +2,8 @@
 
 A hook output longer than ~10k characters is hidden by the harness in a persisted
 file with a ~2 KB preview, so everything is delivered in portions of at most
-BUDGET bytes. A rule larger than that is cut by `##` sections into labelled parts
+BUDGET bytes and CHAR_BUDGET characters (`cost`). A rule larger than that is cut by
+`##` sections into labelled parts
 ("rule.md (часть 2 из 3)"); a section larger than the budget — by lines.
 
 State per session (one JSON file under the state dir, guarded by a lock): which
@@ -19,6 +20,7 @@ from pathlib import Path
 from . import frontmatter
 
 BUDGET = 12 * 1024
+CHAR_BUDGET = 9000          # characters: the harness hides ~10k, the hook adds labels and lines
 STATE_ENV = "DESK_STATE_DIR"
 LOCK_WAIT = 3.0
 CONTEXT_RESET_SOURCES = ("clear", "compact")
@@ -35,6 +37,10 @@ class Unit:
     @property
     def size(self):
         return len(self.text.encode("utf-8"))
+
+    @property
+    def cost(self):
+        return cost(self.text)
 
 
 def _blocks(body):
@@ -53,8 +59,15 @@ def _blocks(body):
     return out
 
 
-def _size(s):
-    return len(s.encode("utf-8"))
+def cost(s):
+    """What a text costs against BUDGET: its bytes, or its characters scaled to
+    CHAR_BUDGET, whichever is larger. The harness limit is in characters: bytes keep
+    the portions of non-ASCII text as they were, characters stop ASCII text from
+    outgrowing the limit (12 KB of ASCII is 12k characters)."""
+    return max(len(s.encode("utf-8")), -(-len(s) * BUDGET // CHAR_BUDGET))
+
+
+_size = cost
 
 
 def _pack(blocks, budget):
@@ -110,11 +123,11 @@ def bundle(rules, state, budget=BUDGET):
             if u.label in state.delivered or u.label in seen:
                 continue
             seen.add(u.label)
-            if send and total + u.size > budget:
+            if send and total + u.cost > budget:
                 rest.append(u)
                 continue
             send.append(u)
-            total += u.size
+            total += u.cost
     return send, rest
 
 
@@ -303,9 +316,9 @@ def partition(rules, slots, budget=BUDGET):
     for r in rules:
         for u in units(r, budget):
             for i in range(slots):
-                if sizes[i] + u.size <= budget:
+                if sizes[i] + u.cost <= budget:
                     buckets[i].append(u)
-                    sizes[i] += u.size
+                    sizes[i] += u.cost
                     break
             else:
                 rest.append(r)
