@@ -178,6 +178,41 @@ class HookTest(HomeCase):
                   "cwd": str(self.api)})
         self.assertIn("git body", ctx_of(self.pre("git push")))
 
+    def test_unchanged_rule_not_delivered_again(self):
+        self.assertIn("git body", ctx_of(self.pre("git commit -m x")))
+        p = self.home / "process/git.md"
+        p.write_text(p.read_text(encoding="utf-8"), encoding="utf-8")   # touched, same text
+        self.assertEqual(self.pre("git push"), {})
+
+    def test_rule_changed_mid_session_delivered_again_once(self):
+        self.assertIn("git body", ctx_of(self.pre("git commit -m x")))
+        self.write({"process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\n# Git\ngit body v2\n"})
+        text = ctx_of(self.pre("git push"))
+        self.assertIn("git body v2", text)
+        self.assertIn("Изменились с прошлой подачи в этой сессии: process/git.md", text)
+        self.assertEqual(self.pre("git push"), {})           # the new text is in context now
+        self.assertNotIn("Изменились", ctx_of(self.pre("git commit -m x", sid="s2")))   # first delivery
+
+    def test_changed_part_of_a_big_rule_delivered_alone(self):
+        body = big(3, 5000)
+        self.write({"process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\n" + body})
+        self.pre("git commit -m x")
+        self.pre("ls")                                       # part 2 from the queue
+        self.write({"process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\n"
+                    + body.replace("## S2", "## S2 edited")})
+        text = ctx_of(self.pre("git push"))
+        self.assertIn("--- process/git.md (часть 2 из 2) ---", text)
+        self.assertNotIn("--- process/git.md (часть 1 из 2) ---", text)
+
+    def test_state_without_digests_counts_as_current(self):
+        self.pre("git commit -m x")
+        f = dl.state_dir() / "s1.json"
+        raw = json.loads(f.read_text(encoding="utf-8"))
+        raw.pop("digests")
+        f.write_text(json.dumps(raw), encoding="utf-8")
+        self.write({"process/git.md": "---\ntier: action\nwhen:\n  - git: write\n---\n# Git\nother\n"})
+        self.assertEqual(self.pre("git push"), {})
+
     def test_context_rule_only_in_its_context(self):
         self.assertIn("acme tracker", ctx_of(self.pre("tracker-cli list")))
         self.assertEqual(self.pre("tracker-cli list", sid="s9", cwd="/"), {})

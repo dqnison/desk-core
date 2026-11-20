@@ -54,7 +54,7 @@ needed, and stops what must not be missed before it runs.
 | Feature | What it does |
 | --- | --- |
 | Tiers and `when:` | a rule is in context always (`import`), from session start (`session`) or at the action (`action`): a Bash command, a git subcommand, a file path, a prompt, a skill, an MCP tool |
-| Portions | Claude Code hides hook output longer than ~10k characters from the model, so a big rule is cut by sections into parts of up to 12 KB and 9k characters, the rest arrives with the next call; a rule is delivered once per session, and once more after compaction empties the context |
+| Portions | Claude Code hides hook output longer than ~10k characters from the model, so a big rule is cut by sections into parts of up to 12 KB and 9k characters, the rest arrives with the next call; a rule is delivered once per session, once more after compaction empties the context, and again when its file changed since it was delivered |
 | `guard:` | `deny` or `ask` before a call: on the command, the commit message and subject, the written text, the paths, the tool input; the reason comes from the same rule file |
 | Contexts (`contexts/`) | work and personal rules apart: a context is chosen by `git remote` or path; a workplace has its own triggers, repositories and branches, and its names do not leak into portable rules |
 | Extensions (`ext/`) | Python checks where data is not enough, and your own lines on session events |
@@ -103,7 +103,8 @@ The model calls `git commit -m "fixed bug"`. Before the call runs, the hook:
 3. the model reads the reason and the rule, retries with `fix(no-ref): handle empty cart` — it passes.
 
 A rule is delivered once per session. If the model already read the whole file, it is
-not delivered again.
+not delivered again. If the file changed since, the next trigger delivers the new text
+with a note that the old one is stale.
 
 ## Try it in 5 minutes
 

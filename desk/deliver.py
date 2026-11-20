@@ -7,10 +7,12 @@ BUDGET bytes and CHAR_BUDGET characters (`cost`). A rule larger than that is cut
 ("rule.md (часть 2 из 3)"); a section larger than the budget — by lines.
 
 State per session (one JSON file under the state dir, guarded by a lock): which
-units are already in context, what is queued (did not fit), which gates and asks
+units are already in context and in what wording (a unit changed on disk since is
+delivered again), what is queued (did not fit), which gates and asks
 were already used. `clear`/`compact` wipe the context, so they wipe the state too.
 """
 import contextlib
+import hashlib
 import json
 import os
 import time
@@ -116,11 +118,12 @@ def order_action(fired):
 
 
 def bundle(rules, state, budget=BUDGET):
-    """Units of the rules not yet delivered, within the budget: (send, rest)."""
+    """Units of the rules not yet in context — never delivered, or changed on disk
+    since they were — within the budget: (send, rest)."""
     send, rest, total, seen = [], [], 0, set()
     for r in rules:
         for u in units(r, budget):
-            if u.label in state.delivered or u.label in seen:
+            if state.has(u) or u.label in seen:
                 continue
             seen.add(u.label)
             if send and total + u.cost > budget:
@@ -129,6 +132,16 @@ def bundle(rules, state, budget=BUDGET):
             send.append(u)
             total += u.cost
     return send, rest
+
+
+def revised(units_, state):
+    """Labels among `units_` that were delivered before in another wording: the
+    session holds an old text of them. Call before `state.sent`."""
+    return [u.label for u in units_ if u.label in state.delivered]
+
+
+def digest(text):
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
 
 
 def body_of(units_):
@@ -159,6 +172,7 @@ class State:
     gates: set = field(default_factory=set)       # rule rels whose gate was used
     asks: set = field(default_factory=set)        # guard ids already confirmed once
     notes: set = field(default_factory=set)       # one-time hints already given
+    digests: dict = field(default_factory=dict)   # unit label → digest of the text delivered
 
     @property
     def file(self):
@@ -179,6 +193,7 @@ class State:
         s.gates = set(raw.get("gates") or [])
         s.asks = set(raw.get("asks") or [])
         s.notes = set(raw.get("notes") or [])
+        s.digests = dict(raw.get("digests") or {})
         return s
 
     def save(self):
@@ -186,7 +201,8 @@ class State:
         if f is None:
             return
         data = {"delivered": sorted(self.delivered), "pending": self.pending,
-                "gates": sorted(self.gates), "asks": sorted(self.asks), "notes": sorted(self.notes)}
+                "gates": sorted(self.gates), "asks": sorted(self.asks), "notes": sorted(self.notes),
+                "digests": self.digests}
         tmp = f.with_name(f"{f.name}.{os.getpid()}.tmp")
         try:
             f.parent.mkdir(parents=True, exist_ok=True)
@@ -198,12 +214,22 @@ class State:
     def sent(self, units_, rest=()):
         """Mark units delivered; queue the rules of what did not fit."""
         self.delivered |= {u.label for u in units_}
+        self.digests.update({u.label: digest(u.text) for u in units_})
         done = {u.rel for u in units_}
         self.pending = list(dict.fromkeys([r for r in self.pending if r not in done]
                                           + [u.rel for u in rest]))
 
+    def has(self, unit):
+        """The unit is in context as it reads now. A rule edited mid-session is not:
+        the session holds the old text and keeps acting on it. A label without a
+        digest (state written before digests) counts as current."""
+        if unit.label not in self.delivered:
+            return False
+        known = self.digests.get(unit.label)
+        return known is None or known == digest(unit.text)
+
     def fully_delivered(self, rule, budget=BUDGET):
-        return all(u.label in self.delivered for u in units(rule, budget))
+        return all(self.has(u) for u in units(rule, budget))
 
 
 RESET_WINDOW = 30   # seconds: the slots of one start run together

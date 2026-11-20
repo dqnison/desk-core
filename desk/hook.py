@@ -188,7 +188,8 @@ def _deliver(fired, extra, state, event, prefix=""):
         return ""
     sent_rels = {u.rel for u in send}
     reasons = _reasons([f for f in fired if f.rule.rel in sent_rels]) or "очередь прошлых порций"
-    head = msg.action_head(reasons, [u.label for u in send], event, [u.label for u in rest])
+    head = msg.action_head(reasons, [u.label for u in send], event, [u.label for u in rest],
+                           dl.revised(send, state))
     state.sent(send, rest)
     text = (prefix + "\n" if prefix else "") + head + dl.body_of(send)
     return hook_json(event, text, msg.summary(event, f"подано {dl.sized(send)} · ярус action",
@@ -253,10 +254,11 @@ def _pre_tool_rest(session, call, fired, newcomers, all_rules, state, decision, 
         rules = ([decision.rule] if decision.rule else []) + [f.rule for f in fired] + extra
         rules = list({r.rel: r for r in rules}.values())
         send, rest = dl.bundle(rules, state)
+        revised = dl.revised(send, state)
         state.sent(send, rest)
         text = prefix + msg.decision_head("ask", decision.id, decision.reason)
         if send:
-            text += "\n" + msg.rules_attached([u.label for u in send]) + dl.body_of(send)
+            text += "\n" + msg.rules_attached([u.label for u in send], revised) + dl.body_of(send)
         return hook_json("PreToolUse", text, msg.summary("PreToolUse", f"ask ({decision.id})"),
                          permissionDecision="ask", permissionDecisionReason=decision.reason)
     return _deliver(fired, extra, state, "PreToolUse", prefix=notes)
@@ -417,10 +419,11 @@ def report_changes(changed, call, session, all_rules, state):
         return ""
     notes = list(dict.fromkeys(notes))
     send, rest = dl.bundle(list({f.rule.rel: f.rule for f in fired}.values()), state)
+    revised = dl.revised(send, state)
     state.sent(send, rest)
     text = "\n".join([msg.changed_files(changed), *notes])
     if send:
-        text += "\n" + msg.rules_attached([u.label for u in send]) + dl.body_of(send)
+        text += "\n" + msg.rules_attached([u.label for u in send], revised) + dl.body_of(send)
     return hook_json("PostToolUse", text, msg.summary(
         "PostToolUse", f"изменено файлов: {len(changed)}", notes and "замечаний: " + str(len(notes))))
 

@@ -26,10 +26,18 @@ def no_session_files():
     return f"{MARK} Файлов яруса session для этой сессии нет."
 
 
-def action_head(reasons, labels, event, rest_labels=()):
+def revised(labels):
+    """Said before the files when some of them were delivered earlier in another wording."""
+    if not labels:
+        return ""
+    return (f" Изменились с прошлой подачи в этой сессии: {', '.join(labels)} — действует "
+            "текст ниже, прежний устарел.")
+
+
+def action_head(reasons, labels, event, rest_labels=(), revised_labels=()):
     s = (f"{MARK} Сработало: {reasons}. Правила ниже действуют до конца сессии; подано ярусом "
-         f"action ({event}), повторно не подаётся. Файлы: {', '.join(labels)}. "
-         f"{READ_HINT} до выполнения действия.")
+         f"action ({event}), повторно — только если файл изменится. Файлы: {', '.join(labels)}."
+         f"{revised(revised_labels)} {READ_HINT} до выполнения действия.")
     if rest_labels:
         s += (" Остальное придёт со следующим вызовом инструмента; нужно сейчас — прочитать: "
               + ", ".join(rest_labels) + ".")
@@ -55,8 +63,8 @@ def guard_reason(why, rule_rel, found=""):
     return s + f" ({rule_rel})."
 
 
-def rules_attached(labels):
-    return f"{MARK} Правила ниже действуют до конца сессии. Файлы: {', '.join(labels)}."
+def rules_attached(labels, revised_labels=()):
+    return f"{MARK} Правила ниже действуют до конца сессии. Файлы: {', '.join(labels)}.{revised(revised_labels)}"
 
 
 def changed_files(paths):
