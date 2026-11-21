@@ -75,7 +75,7 @@ them on (details [below](#extras-off-by-default)):
 | Threads | `threads: true` or `threads: {next: …, closed: …}` | what was said in one chat is known in the next — [below](#threads) | `desk lint` checks thread files and `now.md`: status, a next-step section when open, a closing line when closed, `now.md` size and freshness |
 | Worktree and docker stack sweep | `sweep: true` | worktrees and stacks pile up and hold gigabytes; the sweep says what can go and what cannot | at start: the repository's git worktrees with a verdict — holds work (the only copy is here) / in work (its task is open) / fresh work (touched lately) / can go; what can go in every known checkout; docker compose — stacks up, stacks and volumes with no worktree; says so when docker does not answer. Removes nothing itself |
 | Checkout to base | place `branches:`; `checkout: {auto: true}` | new work starts from a fresh integration branch, and an idle checkout does not pose as work | a line «on base / off base» with the command to fix it; with `auto` the hook moves a clean, pushed checkout to a fresh integration branch — not when another session works in it or the branch's task is in work |
-| Session worktree | `desk init --hooks --worktree`; `worktree: {branch: …}` | parallel sessions do not get in each other's way in one folder | the `WorktreeCreate` hook: a tree in `<checkout>/.claude/worktrees/<slug>` from a fresh `origin/<integration>`, a branch by your pattern with no upstream, `.worktreeinclude` copied; on failure a plain `git worktree add` |
+| Session worktree | `desk init --hooks --worktree`; `worktree: {branch: …}` | parallel sessions do not get in each other's way in one folder | the `WorktreeCreate` hook: a tree in `<checkout>/.claude/worktrees/<slug>` from a fresh `origin/<integration>`, a branch by your pattern with no upstream, `.worktreeinclude` copied; on failure a plain `git worktree add`. The `WorktreeRemove` hook drops the tree and its branch only when nothing is uncommitted and the branch is in a base (local or `origin`) or pushed; otherwise the tree stays |
 | `change_directory` hint | an extension with `@ext.checkouts` | a Claude desktop session works where its file panel looks | a command went to another known checkout of the same place — a one-time line «move there» (the desktop's `change_directory` tool) per repository |
 
 ## How it looks
@@ -145,7 +145,7 @@ uvx --from git+https://github.com/dqnison/desk-core desk init ~/desk   # run wit
   Or `claude --plugin-dir ~/desk-core` from a clone, for one session.
 - Without the plugin: `desk init --hooks` prints a `hooks` block to paste into
   `~/.claude/settings.json`; `desk init --hooks --worktree` adds the `WorktreeCreate`
-  hook (see Extras). Run it from a checkout or a persistent install (`uv tool` /
+  and `WorktreeRemove` hooks (see Extras). Run it from a checkout or a persistent install (`uv tool` /
   `pipx`): under `uvx` the printed path points into uv's cache.
 
 Then set **`DESK_HOME`** in `~/.claude/settings.json` under `env`
@@ -417,7 +417,7 @@ goes into a package (`ext/mylib/`): only `ext/*.py` load as extensions, and `ext
 | `desk why '<command>'` | dry run of the hooks on one call; `--exit-code`: 2 on deny, 1 on ask |
 | `desk lint` | checks `DESK_HOME`: frontmatter, `when`/`guard`/`also`, `desk.yml`, size, links, contexts, place names; with `entry` — the `@`-imports |
 | `desk measure [--days 28]` | from transcripts in `~/.claude/projects`: weight per tier, in how many sessions a fired rule reached the model, compliance of each guard. A rule counts from its start — its `since:` or the day its file was added to git; `measure: {since: 2026-11-13}` in `desk.yml` cuts off every earlier session (the day you moved to the core, say) |
-| `desk init [dir]` | the default desk and the wiring steps; `--hooks` prints the `settings.json` block, `--worktree` adds `WorktreeCreate` |
+| `desk init [dir]` | the default desk and the wiring steps; `--hooks` prints the `settings.json` block, `--worktree` adds `WorktreeCreate` and `WorktreeRemove` |
 | `desk doctor` | Python, `DESK_HOME`, rules (and which are `enabled: false`), context here, extensions, hooks wired |
 | `desk import <file>` | CLAUDE.md / AGENTS.md split by `##` into `process/*.md`, tier `import` |
 | `desk export agents-md --out <project>` | the `import` tier as one `AGENTS.md` (Codex, Cursor and others read it) |

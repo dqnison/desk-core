@@ -84,6 +84,44 @@ class CreateTest(Repo):
         self.assertEqual(self.hook("../escape", self.repo), (1, ""))
 
 
+class RemoveTest(Repo):
+    def tree(self, name):
+        _, out = self.hook(name, self.repo)
+        return Path(out.strip())
+
+    def remove(self, tree):
+        with contextlib.redirect_stderr(io.StringIO()):
+            return worktree.run_remove({"worktree_path": str(tree)}, self.home)
+
+    def branches(self):
+        return sh(self.repo, "branch", "--list", "wip/*")
+
+    def test_merged_tree_goes_with_its_branch(self):
+        t = self.tree("done")
+        commit(t, "work")
+        sh(self.repo, "checkout", "-q", "develop")
+        sh(self.repo, "merge", "-q", "--ff-only", "wip/done")     # влита в локальную, не запушена
+        self.assertEqual(self.remove(t), 0)
+        self.assertFalse(t.exists())
+        self.assertEqual(self.branches(), "")
+
+    def test_untouched_tree_goes(self):
+        t = self.tree("empty")
+        self.assertEqual(self.remove(t), 0)
+        self.assertFalse(t.exists())
+
+    def test_dirty_or_unmerged_tree_stays(self):
+        dirty, unmerged = self.tree("dirty"), self.tree("unmerged")
+        (dirty / "x.txt").write_text("draft")
+        commit(unmerged, "only here")
+        self.assertEqual((self.remove(dirty), self.remove(unmerged)), (1, 1))
+        self.assertTrue(dirty.is_dir() and unmerged.is_dir())
+        self.assertIn("wip/unmerged", self.branches())
+
+    def test_missing_path_is_fine(self):
+        self.assertEqual(self.remove(self.repo / ".claude" / "worktrees" / "gone"), 0)
+
+
 class HookEntryTest(Repo):
     def test_hook_routes_worktree_create_even_when_quiet(self):
         import json, os

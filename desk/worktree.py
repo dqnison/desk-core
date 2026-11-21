@@ -129,6 +129,60 @@ def fallback(name, cwd):
     return dest
 
 
+def keeps_work(tree, bases):
+    """Why the tree may not go, or "" — the work is somewhere else too: nothing
+    uncommitted and the branch is in a base (local or origin) or fully pushed."""
+    if git(tree, "status", "--porcelain", "-uall").stdout.strip():
+        return "незакоммиченное"
+    head = git(tree, "rev-parse", "HEAD").stdout.strip()
+    for ref in bases:
+        if git(tree, "rev-parse", "--verify", "--quiet", ref).returncode == 0 \
+                and git(tree, "merge-base", "--is-ancestor", head, ref).returncode == 0:
+            return ""
+    if git(tree, "rev-parse", "--verify", "--quiet", "@{u}").returncode == 0 \
+            and git(tree, "rev-list", "--count", "@{u}..HEAD").stdout.strip() == "0":
+        return ""
+    return "ветка не влита и не запушена"
+
+
+def remove(path, home=None):
+    """WorktreeRemove: the tree and its branch go only when the work lives elsewhere.
+    Claude Code never deletes the branch of a hook-made tree — done here (`-d`: a branch
+    git thinks unmerged stays). Kept — exit 1, the harness keeps the directory."""
+    tree = Path(path)
+    if not is_tree(tree):
+        log(f"remove {tree}: not a tree")
+        return 0
+    root = main_checkout(tree)
+    integration, _ = settings(root, home)
+    main_branch = git(root, "symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
+    bases = [r for b in dict.fromkeys(filter(None, (integration, main_branch)))
+             for r in (f"refs/heads/{b}", f"refs/remotes/origin/{b}")]
+    why = keeps_work(tree, bases)
+    if why:
+        log(f"keep {tree}: {why}")
+        sys.stderr.write(f"desk WorktreeRemove: дерево оставлено — {why}: {tree}\n")
+        return 1
+    branch = git(tree, "symbolic-ref", "--quiet", "--short", "HEAD").stdout.strip()
+    r = git(root, "worktree", "remove", str(tree))
+    if r.returncode != 0:
+        log(f"remove {tree} failed: {r.stderr.strip()}")
+        return 1
+    if branch and branch != main_branch:
+        git(root, "branch", "-d", branch)
+    log(f"remove {tree} branch={branch}")
+    return 0
+
+
+def run_remove(data, home=None):
+    try:
+        return remove(data.get("worktree_path") or "", home)
+    except Exception as e:      # unsure — keep the work
+        log(f"remove failed: {e!r}")
+        sys.stderr.write(f"desk WorktreeRemove: {e}\n")
+        return 1
+
+
 def run(data, home=None):
     """The hook: prints the tree's path; exit code 1 — no tree."""
     name, cwd = data.get("name") or "", data.get("cwd") or os.getcwd()

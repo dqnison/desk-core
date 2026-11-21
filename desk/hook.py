@@ -11,6 +11,7 @@
     SessionEnd        extension handlers (the session journal)
     WorktreeCreate    the session's worktree from the place's integration branch
                       (desk.worktree); runs even with the hooks quiet — the harness waits
+    WorktreeRemove    the tree and its branch go only when the work is elsewhere too
 
 The command is never rewritten. No model calls.
 """
@@ -47,6 +48,9 @@ def main(argv=None, stdin=None):
     if data.get("hook_event_name") == "WorktreeCreate":     # the harness waits for a path, even quiet
         from . import worktree
         return worktree.run(data)
+    if data.get("hook_event_name") == "WorktreeRemove":     # the exit code decides, even quiet
+        from . import worktree
+        return worktree.run_remove(data)
     if homelib.quiet():
         return 0
     try:

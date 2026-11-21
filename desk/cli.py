@@ -152,7 +152,8 @@ def hooks_block(worktree=False):
         "PreToolUse": [{"matcher": "*", "hooks": one}],
         "PostToolUse": [{"matcher": "*", "hooks": one}],
         "SessionEnd": [{"hooks": one}],
-        **({"WorktreeCreate": [{"hooks": [{"type": "command", "command": entry, "timeout": 60}]}]}
+        **({"WorktreeCreate": [{"hooks": [{"type": "command", "command": entry, "timeout": 60}]}],
+            "WorktreeRemove": [{"hooks": [{"type": "command", "command": entry, "timeout": 30}]}]}
            if worktree else {}),
     }}
 

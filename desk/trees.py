@@ -1,7 +1,8 @@
 """Worktrees and docker compose stacks of the machine: what can go, what holds work.
 
 A verdict per worktree, the first wins: `держит работу` — uncommitted, unpushed, or a
-branch with no upstream that is not in the base (the only copy is here); `в работе` —
+branch with no upstream that is in neither the remote nor the local base (the only
+copy is here); `в работе` —
 an `@ext.in_work` resolver says its task is in work (none knows — the tree counts as
 in work); `свежая работа` — touched within TREE_FRESH_H or a live process works in it;
 `сносимо` — the rest. A stack is a compose project tied to a checkout or a tree by its
@@ -184,11 +185,14 @@ def trees_state(cwd, integration, production, in_work_of=None, procs=None, now=N
                 fresh=False, fresh_via=None, verdict=TREE_HOLDS))
             continue
         has_upstream = bool(git(path, "rev-parse", "--abbrev-ref", "--quiet", "@{u}"))
+        # влита — в базу remote или в локальную базу главной копии: ветка, влитая
+        # в незапушенную локальную базу, тоже не единственная копия работы
         merged = any(
-            base and git(path, "rev-parse", "--verify", "--quiet", f"origin/{base}")
+            base and git(path, "rev-parse", "--verify", "--quiet", ref)
             and subprocess.run(["git", "-C", path, "merge-base", "--is-ancestor",
-                                branch, f"origin/{base}"], capture_output=True).returncode == 0
-            for base in (integration, production))
+                                branch, ref], capture_output=True).returncode == 0
+            for base in (integration, production)
+            for ref in (f"refs/remotes/origin/{base}", f"refs/heads/{base}"))
         dirty = len(git(path, "status", "--porcelain", "-uall").splitlines())
         unpushed = int(git(path, "rev-list", "--count", "@{u}..HEAD") or 0) if has_upstream else 0
         remote_gone = not git(path, "rev-parse", "--verify", "--quiet",

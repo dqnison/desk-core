@@ -28,7 +28,7 @@ uvx --from git+https://github.com/dqnison/desk-core desk init ~/desk   # без 
 
    На одну сессию из клона — `claude --plugin-dir ~/desk-core`. Либо без плагина: `desk init --hooks`
    печатает блок `hooks` для `~/.claude/settings.json`, `--worktree` добавляет хук
-   `WorktreeCreate` (см. «Дополнения»). Запускать из чекаута или постоянной установки
+   `WorktreeCreate` и `WorktreeRemove` (см. «Дополнения»). Запускать из чекаута или постоянной установки
    (`uv tool`/`pipx`): под `uvx` в блок попадает путь в кэш uv.
 2. **`DESK_HOME`** — в `~/.claude/settings.json`, ключ `env`: `{"DESK_HOME": "/Users/<you>/desk"}`.
    Профиль шелла не годится для десктоп-приложения: оно его не читает.

@@ -59,6 +59,27 @@ class SweepTest(HomeCase):
         self.assertEqual(got, {"demo-1": trees.TREE_DROP, "demo-2": trees.TREE_LIVE})
         self.assertTrue(any(ln.startswith("Сносимо в app: demo-1") for ln in lines), lines)
 
+    def test_branch_merged_into_unpushed_local_base_is_not_the_only_copy(self):
+        # desk: дерево сессии вливается fast-forward в локальную main, пуш позже
+        root = self.tmp / "app"
+        root.mkdir()
+        old = f"@{int(time.time()) - 7 * 86400} +0000"
+        env = {**os.environ, "GIT_COMMITTER_DATE": old, "GIT_AUTHOR_DATE": old}
+        g = lambda *a, cwd=root: subprocess.run(["git", "-C", str(cwd), "-c", "user.name=t", "-c",
+                                                 "user.email=t@t", *a], capture_output=True, check=True, env=env)
+        subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+        g("commit", "-q", "--allow-empty", "-m", "init")
+        g("update-ref", "refs/remotes/origin/main", "HEAD")
+        tree = self.tmp / "calm-tesla-1a2b3c"
+        g("worktree", "add", "-q", "-b", "chore/no-ref/calm-tesla-1a2b3c", str(tree), "main")
+        g("commit", "-q", "--allow-empty", "-m", "work", cwd=tree)
+        state = lambda: trees.trees_state(str(root), "main", "", lambda *n: False, procs=[],
+                                          now=time.time() + 7 * 86400)[0]
+        self.assertEqual(state().verdict, trees.TREE_HOLDS)         # только в дереве
+        g("merge", "-q", "--ff-only", "chore/no-ref/calm-tesla-1a2b3c")
+        self.assertTrue(state().merged)
+        self.assertEqual(state().verdict, trees.TREE_DROP)
+
 
 class ForeignCheckoutTest(HomeCase):
     """A command works in a known checkout of the place while the session is in another
